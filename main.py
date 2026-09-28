@@ -1,19 +1,21 @@
 from datetime import datetime
+import os
 import gspread
 import pandas as pd
 import streamlit as st
 
-# Configuración de la página
+# Configuración de página
 st.set_page_config(
-    page_title="Control de Producción y Trazabilidad",
+    page_title="Control de Procesos - Líneas",
     page_icon="📋",
     layout="wide",
 )
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
+FILE_PATH = "procesos.xlsx"
 
 
+# --- CONEXIÓN SEGURA A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
   pk_lines = [
@@ -78,10 +80,117 @@ try:
   data = ws.get_all_records()
   df_actual = pd.DataFrame(data)
 except Exception as e:
-  st.error(f"Error al conectar con Google Sheets: {e}")
+  st.error(f"❌ Error al conectar con Google Sheets: {e}")
   df_actual = pd.DataFrame()
 
-# --- ENCABEZADOS ESTÁNDAR ---
+# Catálogo por defecto (Línea -> Productos)
+CATALOGO_DEFAULT = {
+    "MUFFINS": [
+        "MUFFIN DE MANZANA - FRESCO - (UND)",
+        "MUFFIN DE NARANJA & CHOCOCHIPS - FRESCO - (UND)",
+        "MUFFIN DE BERRIES - FRESCO - (UND)",
+        "MUFFIN DE CHOCOLATE - FRESCO - (UND)",
+        "MUFFIN DE RED VELVET (SIN DECORAR)",
+    ],
+    "AMASADO": [
+        "GALLETA CHOCOCHIP CON AVELLANA STBX",
+        "CINNAMON ROLL - STB",
+        "BASE DE TARTALETA CIRCULAR",
+        "CROUMBLE BERRIES HORNEADO",
+        "BASE CROUMBLE DE BERRIES STBX",
+        "CROUMBLE BERRY KG STBX",
+    ],
+    "DECORADO": [
+        "ROLL CINNAMON STARBUCKS",
+        "TORTA DE CHOCOLATE CON FUDGE Y MANJAR",
+        "PYE DE LIMON - FRESCO - (UND) (STBX)",
+        "KEKE RECTANGULAR DE LIMON  STBX",
+        "KEKE RECTAGULAR DE ZANAHORIA STBX",
+        "KEKE RECTANGULAR GINGER DECORADO - B2B",
+        "MUFFIN DE RED VELVET - UND",
+        "GALLETA CHOCOCHIP CON AVELLANA STBX",
+    ],
+    "BATIDOS": [
+        "KEKE RECTANGULAR DE LIMON STB",
+        "KEKE DE ZANAHORIA INTEGRAL Y PANELA STB",
+    ],
+    "OTRO": [],
+}
+
+EQUIPOS_DEFAULT = [
+    "BATIDORA",
+    "ROBOTCOUPE",
+    "AMASADORA",
+    "GALLETERA",
+    "DIVISORA",
+    "DOSIFICADORA",
+    "LAMINADORA",
+    "NO APLICA",
+    "OTRO",
+]
+
+
+@st.cache_data(ttl=3600)
+def cargar_catalogos():
+  mapa_linea_productos = CATALOGO_DEFAULT.copy()
+  equipos = EQUIPOS_DEFAULT
+
+  if os.path.exists(FILE_PATH):
+    try:
+      xls = pd.ExcelFile(FILE_PATH)
+      for sheet in xls.sheet_names:
+        df = pd.read_excel(FILE_PATH, sheet_name=sheet)
+        for idx, row in df.iterrows():
+          row_vals = [str(v).strip() for v in row.values if pd.notna(v)]
+          if "PRODUCTO" in row_vals and "LÍNEA DE PROCESO" in row_vals:
+            header_idx = idx
+            df_data = df.iloc[header_idx + 1 :].copy()
+            df_data.columns = [str(c).strip() for c in df.iloc[header_idx].values]
+
+            temp_map = {}
+            for _, r in df_data.iterrows():
+              p = (
+                  str(r["PRODUCTO"]).strip()
+                  if pd.notna(r.get("PRODUCTO"))
+                  else None
+              )
+              l = (
+                  str(r["LÍNEA DE PROCESO"]).strip()
+                  if pd.notna(r.get("LÍNEA DE PROCESO"))
+                  else None
+              )
+              if p and l:
+                if l not in temp_map:
+                  temp_map[l] = []
+                if p not in temp_map[l]:
+                  temp_map[l].append(p)
+
+            if temp_map:
+              if "OTRO" not in temp_map:
+                temp_map["OTRO"] = []
+              mapa_linea_productos = temp_map
+
+            if "EQUIPO UTILIZADO" in df_data.columns:
+              eqs = (
+                  df_data["EQUIPO UTILIZADO"]
+                  .dropna()
+                  .astype(str)
+                  .str.strip()
+                  .unique()
+                  .tolist()
+              )
+              if eqs:
+                equipos = list(dict.fromkeys(eqs + ["OTRO"]))
+            break
+    except Exception:
+      pass
+
+  return mapa_linea_productos, equipos
+
+
+mapa_linea_productos, lista_equipos = cargar_catalogos()
+lista_lineas = list(mapa_linea_productos.keys())
+
 headers = [
     "PRODUCTO",
     "LÍNEA DE PROCESO",
@@ -103,124 +212,266 @@ headers = [
 if df_actual.empty:
   df_actual = pd.DataFrame(columns=headers)
 
-# --- NAVEGACIÓN POR PESTAÑAS (TABS) ---
-tab_nuevo, tab_gestionar = st.tabs(
+# --- NAVEGACIÓN PRINCIPAL ---
+st.title("📋 FORMATO CONTROL DE PROCESOS LÍNEAS")
+tab1, tab2 = st.tabs(
     ["📝 Nuevo Registro", "✏️ Gestionar / Editar / Eliminar Historial"]
 )
 
-with tab_nuevo:
-  st.title("📋 Registro y Control de Producción - Pastelería")
+# ==========================================
+# PESTAÑA 1: NUEVO REGISTRO (CON SELECCIÓN EN CASCADA)
+# ==========================================
+with tab1:
+  st.subheader("1. Selección de Línea, Producto y Equipo")
+  col_a, col_b, col_c = st.columns(3)
 
-  with st.form("form_produccion", clear_on_submit=True):
-    st.subheader("Registrar Nuevo Proceso")
+  with col_a:
+    linea_sel = st.selectbox(
+        "LÍNEA DE PROCESO", options=lista_lineas, key="select_linea_filtro"
+    )
+    if linea_sel == "OTRO":
+      linea_text = st.text_input(
+          "Especifique Línea de Proceso", placeholder="Nombre de línea"
+      )
+      linea_final = linea_text
+      productos_disponibles = []
+    else:
+      linea_final = linea_sel
+      productos_disponibles = mapa_linea_productos.get(linea_sel, [])
 
-    col1, col2, col3 = st.columns(3)
+  with col_b:
+    if productos_disponibles:
+      opciones_producto = productos_disponibles + ["OTRO"]
+      prod_sel = st.selectbox(
+          "PRODUCTO", options=opciones_producto, key="select_producto_dinamico"
+      )
+      if prod_sel == "OTRO":
+        prod_text = st.text_input(
+            "Especifique Producto", placeholder="Nombre del producto"
+        )
+        producto_final = prod_text
+      else:
+        producto_final = prod_sel
+    else:
+      producto_final = st.text_input(
+          "PRODUCTO", placeholder="Escriba el nombre del producto"
+      )
+
+  with col_c:
+    equipo_sel = st.selectbox("EQUIPO UTILIZADO", options=lista_equipos)
+    if equipo_sel == "OTRO":
+      equipo_text = st.text_input(
+          "Especifique Equipo", placeholder="Nombre del equipo"
+      )
+      equipo_final = equipo_text
+    else:
+      equipo_final = equipo_sel
+
+  with st.form("form_control_proceso", clear_on_submit=True):
+    st.subheader("2. Información General del Proceso")
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-      producto_final = st.selectbox(
-          "Producto",
-          [
-              "MUFFIN DE MANZANA - FRESCO - (UND)",
-              "MUFFIN DE NARANJA & CHOCOCHIPS - FRESCO - (UND)",
-              "MUFFIN DE BERRIES - FRESCO - (UND)",
-              "MUFFIN DE CHOCOLATE - FRESCO - (UND)",
-          ],
+      fecha_p = st.date_input(
+          "F.P (Fecha de Producción)", value=datetime.date.today()
       )
-      linea_final = st.selectbox("Línea de Proceso", ["MUFFINS", "AMASADO"])
-      fecha_p = st.date_input("Fecha de Producción (F.P)", datetime.now())
-
     with col2:
-      lote = st.text_input("Lote")
-      batch = st.text_input("Batch")
-      responsable = st.text_input("Responsable")
-      equipo_final = st.text_input("Equipo Utilizado", value="BATIDORA")
-
+      lote = st.text_input("LOTE", placeholder="Ej. L-20260901", key="input_lote")
     with col3:
-      cond_area = st.selectbox(
-          "Condiciones Área de Trabajo", ["CONFORME", "NO CONFORME"]
-      )
-      cond_equipo = st.selectbox(
-          "Condiciones del Equipo", ["CONFORME", "NO CONFORME"]
-      )
-      cond_insumos = st.selectbox(
-          "Condiciones de Insumos", ["CONFORME", "NO CONFORME"]
-      )
-      caract_producto = st.selectbox(
-          "Características del Producto", ["CONFORME", "NO CONFORME"]
-      )
-
-    col4, col5, col6 = st.columns(3)
+      batch = st.text_input("BATCH", placeholder="Ej. B-01", key="input_batch")
     with col4:
-      hora_inicio = st.time_input("Hora Inicio", datetime.now().time())
-    with col5:
-      hora_termino = st.time_input("Hora Término", datetime.now().time())
-    with col6:
-      tiempo_calculado = st.text_input("Tiempo (ej. 15 min)", value="15 min")
-
-    observacion_final = st.text_area("Observación", value="CONFORME")
-
-    submit_button = st.form_submit_button("Agregar Registro a la Tabla")
-
-    if submit_button:
-      nueva_fila = {
-          "PRODUCTO": producto_final,
-          "LÍNEA DE PROCESO": linea_final,
-          "F.P": fecha_p.strftime("%Y-%m-%d"),
-          "LOTE": lote,
-          "BATCH": batch,
-          "RESPONSABLE": responsable,
-          "CONDICIONES DEL AREA DE TRABAJO": cond_area,
-          "CONDICIONES DEL EQUIPO": cond_equipo,
-          "CONDICIONES DE LOS INSUMOS": cond_insumos,
-          "CARACTERISTICAS DEL PRODUCTO": caract_producto,
-          "HORA INICIO": hora_inicio.strftime("%H:%M"),
-          "HORA TÉRMINO": hora_termino.strftime("%H:%M"),
-          "TIEMPO": tiempo_calculado,
-          "EQUIPO UTILIZADO": equipo_final,
-          "OBSERVACIÓN": observacion_final,
-      }
-
-      df_actual = pd.concat(
-          [df_actual, pd.DataFrame([nueva_fila])], ignore_index=True
-      )
-      st.success(
-          "¡Registro agregado correctamente! Ve a la pestaña 'Gestionar / Editar"
-          " / Eliminar Historial' para guardar los cambios en Google Sheets."
+      responsable = st.text_input(
+          "RESPONSABLE",
+          placeholder="Ingrese el nombre del responsable",
+          key="input_responsable",
       )
 
-with tab_gestionar:
+    st.subheader("3. Condiciones del Entorno e Insumos")
+    col8, col9, col10, col11 = st.columns(4)
+
+    with col8:
+      cond_area = st.radio(
+          "CONDICIONES DEL AREA DE TRABAJO",
+          options=["CONFORME", "NO CONFORME"],
+          horizontal=True,
+      )
+    with col9:
+      cond_equipo = st.radio(
+          "CONDICIONES DEL EQUIPO",
+          options=["CONFORME", "NO CONFORME"],
+          horizontal=True,
+      )
+    with col10:
+      cond_insumos = st.radio(
+          "CONDICIONES DE LOS INSUMOS",
+          options=["CONFORME", "NO CONFORME"],
+          horizontal=True,
+      )
+    with col11:
+      caract_producto = st.radio(
+          "CARACTERISTICAS DEL PRODUCTO",
+          options=["CONFORME", "NO CONFORME"],
+          horizontal=True,
+      )
+
+    st.subheader("4. Horarios y Tiempo de Proceso")
+    col12, col13, col14 = st.columns(3)
+
+    with col12:
+      hora_inicio = st.time_input("HORA INICIO", value=datetime.time(8, 0))
+    with col13:
+      hora_termino = st.time_input("HORA TÉRMINO", value=datetime.time(8, 15))
+
+    dt_inicio = datetime.datetime.combine(datetime.date.today(), hora_inicio)
+    dt_termino = datetime.datetime.combine(datetime.date.today(), hora_termino)
+    if dt_termino < dt_inicio:
+      dt_termino += datetime.timedelta(days=1)
+
+    minutos_totales = int((dt_termino - dt_inicio).total_seconds() / 60)
+    tiempo_calculado = f"{minutos_totales} min"
+
+    with col14:
+      st.text_input("TIEMPO CALCULADO", value=tiempo_calculado, disabled=True)
+
+    st.subheader("5. Observaciones Finales")
+    col15, col16 = st.columns([1, 2])
+
+    with col15:
+      estado_obs = st.radio(
+          "OBSERVACIÓN", options=["CONFORME", "NO CONFORME", "OTRO (Texto Libre)"]
+      )
+
+    with col16:
+      if estado_obs == "OTRO (Texto Libre)":
+        obs_detalle = st.text_area(
+            "Detalle de Observación",
+            placeholder="Escriba aquí la observación personalizada...",
+            key="input_obs_detalle",
+        )
+        observacion_final = obs_detalle
+      else:
+        obs_adicional = st.text_input(
+            "Comentario Adicional (Opcional)",
+            placeholder="Escriba detalles si aplica...",
+            key="input_obs_adic",
+        )
+        observacion_final = (
+            f"{estado_obs} - {obs_adicional}".strip(" -")
+            if obs_adicional
+            else estado_obs
+        )
+
+    st.markdown("---")
+    btn_guardar = st.form_submit_button(
+        "💾 Guardar Registro en Google Sheets", use_container_width=True
+    )
+
+  if btn_guardar:
+    fila_nueva = [
+        producto_final,
+        linea_final,
+        fecha_p.strftime("%Y-%m-%d"),
+        lote,
+        batch,
+        responsable,
+        cond_area,
+        cond_equipo,
+        cond_insumos,
+        caract_producto,
+        hora_inicio.strftime("%H:%M"),
+        hora_termino.strftime("%H:%M"),
+        tiempo_calculado,
+        equipo_final,
+        observacion_final,
+    ]
+
+    try:
+      datos_existentes = ws.get_all_values()
+      if not datos_existentes:
+        ws.append_row(headers)
+
+      ws.append_row(fila_nueva)
+      st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
+      st.rerun()
+    except Exception as e:
+      st.error(f"❌ Error al guardar en Google Sheets: {e}")
+
+# ==========================================
+# PESTAÑA 2: EDITAR Y ELIMINAR HISTORIAL (CON SINCRONIZACIÓN DE BORRADO)
+# ==========================================
+with tab2:
   st.subheader("📊 Edición, Eliminación y Descarga de Registros")
   st.info(
-      "💡 Instrucciones: Modifica celdas haciendo doble clic sobre ellas o"
+      "💡 **Instrucciones:** Modifica celdas haciendo doble clic sobre ellas o"
       " elimina filas seleccionándolas y presionando la tecla 'Supr/Delete' o"
-      " el ícono de la papelera 🗑️. Luego presiona 'Guardar Cambios en Google"
-      " Sheets'."
+      " la papelera. Luego presiona **'Guardar Cambios en Google Sheets'**."
   )
 
-  edited_df = st.data_editor(
-      df_actual,
-      num_rows="dynamic",
-      key="editor_registros",
-      use_container_width=True,
-  )
-
-  # --- BOTÓN PARA SINCRONIZAR CON GOOGLE SHEETS ---
-  if st.button("💾 Guardar Cambios en Google Sheets"):
-    try:
-      ws.clear()
-
-      if not edited_df.empty:
-        df_limpio = edited_df.fillna("")
-        data_to_update = [df_limpio.columns.tolist()] + df_limpio.values.tolist()
-        ws.update(data_to_update)
-      else:
-        ws.update([headers])
-
-      st.success(
-          "¡Google Sheets actualizado correctamente! Los registros eliminados"
-          " fueron borrados de la nube."
+  try:
+    registros = ws.get_all_records()
+    if registros:
+      df_registros = pd.DataFrame(registros)
+      df_editado = st.data_editor(
+          df_registros,
+          num_rows="dynamic",
+          use_container_width=True,
+          key="editor_historial",
       )
-      st.rerun()
 
-    except Exception as e:
-      st.error(f"Error al sincronizar con Google Sheets: {e}")
+      col_save, _ = st.columns([1, 2])
+      with col_save:
+        if st.button(
+            "💾 Guardar Cambios en Google Sheets", use_container_width=True
+        ):
+          try:
+            ws.clear()
+            if not df_editado.empty:
+              df_limpio = df_editado.fillna("")
+              ws.update(
+                  [df_limpio.columns.values.tolist()]
+                  + df_limpio.values.tolist()
+              )
+            else:
+              ws.update([headers])
+
+            st.success(
+                "✅ ¡Google Sheets actualizado y registros eliminados con"
+                " éxito!"
+            )
+            st.rerun()
+          except Exception as e:
+            st.error(f"❌ Error al actualizar: {e}")
+
+      st.markdown("---")
+      st.subheader("📥 Exportar Historial Completo")
+      col_down1, col_down2 = st.columns(2)
+
+      buffer_excel = io.BytesIO()
+      with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
+        df_registros.to_excel(
+            writer, index=False, sheet_name="Control_Procesos"
+        )
+      data_excel = buffer_excel.getvalue()
+
+      with col_down1:
+        st.download_button(
+            label="📊 Descargar Historial en Excel (.xlsx)",
+            data=data_excel,
+            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+      data_csv = df_registros.to_csv(index=False).encode("utf-8")
+      with col_down2:
+        st.download_button(
+            label="📄 Descargar Historial en CSV (.csv)",
+            data=data_csv,
+            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    else:
+      st.info("Aún no hay registros guardados en Google Sheets.")
+  except Exception as e:
+    st.error(f"Error al leer desde Google Sheets: {e}")
