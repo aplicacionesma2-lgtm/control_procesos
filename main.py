@@ -211,7 +211,7 @@ lista_lineas = list(mapa_linea_productos.keys())
 # --- NAVEGACIÓN PRINCIPAL ---
 st.title("📋 FORMATO CONTROL DE PROCESOS LÍNEAS")
 tab1, tab2 = st.tabs(
-    ["📝 Nuevo Registro", "✏️ Gestionar / Eliminar Registros Historial"]
+    ["📝 Nuevo Registro", "✏️ Gestionar / Editar / Eliminar Historial"]
 )
 
 # ==========================================
@@ -374,44 +374,138 @@ with tab1:
       st.error(f"❌ Error al guardar: {e}")
 
 # ==========================================
-# PESTAÑA 2: GESTIONAR, ELIMINAR Y EXPORTAR (CON BOTONES EXPLÍCITOS)
+# PESTAÑA 2: GESTIONAR, FILTRAR, EDITAR Y ELIMINAR
 # ==========================================
 with tab2:
-  st.subheader("🗑️ Gestión y Eliminación de Registros en Google Sheets")
-  st.info(
-      "💡 Cada registro listado abajo cuenta con su propio botón de eliminación"
-      " directa en la nube."
-  )
+  st.subheader("🔍 Filtrar, Editar y Eliminar Registros por Fecha")
 
   try:
-    registros = ws.get_all_records()
-    if registros:
-      for i, reg in enumerate(registros):
-        with st.container():
-          cols = st.columns([4, 1])
-          with cols[0]:
-            st.markdown(
-                f"**#{i+1} | Producto:** `{reg.get('PRODUCTO')}` | **Línea:**"
-                f" `{reg.get('LÍNEA DE PROCESO')}` | **Lote:**"
-                f" `{reg.get('LOTE')}` | **Responsable:**"
-                f" `{reg.get('RESPONSABLE')}`"
-            )
-          with cols[1]:
-            # Botón único con clave única por índice
-            if st.button("🗑️ Eliminar", key=f"btn_del_{i}"):
-              try:
-                # Las filas en Sheets empiezan en la fila 2 (la fila 1 son las cabeceras)
-                fila_a_borrar = i + 2
-                ws.delete_rows(fila_a_borrar)
-                st.success(f"✅ ¡Registro #{i+1} eliminado de Google Sheets!")
-                st.rerun()
-              except Exception as err:
-                st.error(f"Error al eliminar fila: {err}")
-          st.divider()
+    # Obtenemos todos los registros de la hoja incluyendo su número de fila real (fila 1 = cabecera)
+    rows_all = ws.get_all_values()
+    if len(rows_all) > 1:
+      head = rows_all[0]
+      body = rows_all[1:]
+      df_cloud = pd.DataFrame(body, columns=head)
 
-      st.markdown("---")
-      st.subheader("📥 Exportar Historial Completo")
-      df_registros = pd.DataFrame(registros)
+      # Selector de fecha para filtrar
+      if "F.P" in df_cloud.columns:
+        fechas_disponibles = sorted(df_cloud["F.P"].dropna().unique().tolist())
+        if fechas_disponibles:
+          fecha_seleccionada = st.selectbox(
+              "📅 Seleccione la Fecha de Producción (F.P) a gestionar:",
+              options=fechas_disponibles,
+          )
+
+          # Filtrar registros que coincidan con la fecha
+          df_filtrado = df_cloud[df_cloud["F.P"] == fecha_seleccionada]
+
+          st.markdown(
+              f"### Registros encontrados para la fecha: `{fecha_seleccionada}`"
+          )
+
+          for local_idx, row in df_filtrado.iterrows():
+            # El índice real en Google Sheets es local_idx + 2 (porque rows_all incluye cabecera en índice 0)
+            sheet_row_num = local_idx + 2
+
+            with st.expander(
+                f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')}"
+                f" | Resp: {row.get('RESPONSABLE')}"
+            ):
+              with st.form(key=f"form_edit_{sheet_row_num}"):
+                st.write(f"Editando registro (Fila en Google Sheets)")
+
+                col_e1, col_e2, col_e3 = st.columns(3)
+                with col_e1:
+                  nuevo_prod = st.text_input(
+                      "PRODUCTO", value=row.get("PRODUCTO", "")
+                  )
+                  nueva_linea = st.text_input(
+                      "LÍNEA DE PROCESO", value=row.get("LÍNEA DE PROCESO", "")
+                  )
+                  nuevo_lote = st.text_input("LOTE", value=row.get("LOTE", ""))
+                with col_e2:
+                  nuevo_batch = st.text_input(
+                      "BATCH", value=row.get("BATCH", "")
+                  )
+                  nuevo_resp = st.text_input(
+                      "RESPONSABLE", value=row.get("RESPONSABLE", "")
+                  )
+                  nuevo_equipo = st.text_input(
+                      "EQUIPO UTILIZADO", value=row.get("EQUIPO UTILIZADO", "")
+                  )
+                with col_e3:
+                  nuevo_inicio = st.text_input(
+                      "HORA INICIO", value=row.get("HORA INICIO", "")
+                  )
+                  nuevo_termino = st.text_input(
+                      "HORA TÉRMINO", value=row.get("HORA TÉRMINO", "")
+                  )
+                  nueva_obs = st.text_area(
+                      "OBSERVACIÓN", value=row.get("OBSERVACIÓN", "")
+                  )
+
+                btn_actualizar = st.form_submit_button(
+                    "💾 Guardar Cambios de este Registro"
+                )
+                if btn_actualizar:
+                  try:
+                    # Mantenemos los demás campos intactos y actualizamos los modificados
+                    fila_actualizada = [
+                        nuevo_prod,
+                        nueva_linea,
+                        row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME"),
+                        row.get("F.P", fecha_seleccionada),
+                        nuevo_lote,
+                        nuevo_batch,
+                        nuevo_equipo,
+                        nuevo_inicio,
+                        row.get("CONDICIONES DEL EQUIPO", "CONFORME"),
+                        row.get("CONDICIONES DE LOS INS.UMOS", "CONFORME"),
+                        row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME"),
+                        nuevo_termino,
+                        row.get("TIEMPO", "15 min"),
+                        nuevo_resp,
+                        nueva_obs,
+                    ]
+                    # Actualizamos la fila exacta en Google Sheets
+                    ws.update(
+                        range_name=f"A{sheet_row_num}:O{sheet_row_num}",
+                        values=[fila_actualizada],
+                    )
+                    st.success(
+                        "✅ ¡Registro actualizado correctamente en Google"
+                        " Sheets!"
+                    )
+                    st.rerun()
+                  except Exception as err:
+                    st.error(f"Error al actualizar: {err}")
+
+              # Botón independiente para eliminar esta fila específica
+              if st.button(
+                  f"🗑️ Eliminar este registro permanentemente",
+                  key=f"del_{sheet_row_num}",
+              ):
+                try:
+                  ws.delete_rows(sheet_row_num)
+                  st.success("✅ ¡Registro eliminado de Google Sheets!")
+                  st.rerun()
+                except Exception as err:
+                  st.error(f"Error al eliminar: {err}")
+        else:
+          st.info("No hay fechas registradas en la columna F.P.")
+      else:
+        st.warning("No se encontró la columna 'F.P' en la hoja de cálculo.")
+    else:
+      st.info("Aún no hay registros guardados en Google Sheets.")
+  except Exception as e:
+    st.error(f"Error al leer registros: {e}")
+
+  st.markdown("---")
+  st.subheader("📥 Exportar Historial Completo")
+  try:
+    registros_totales = ws.get_all_records()
+    if registros_totales:
+      df_registros = pd.DataFrame(registros_totales)
       col_down1, col_down2 = st.columns(2)
 
       buffer_excel = io.BytesIO()
@@ -439,7 +533,5 @@ with tab2:
             mime="text/csv",
             use_container_width=True,
         )
-    else:
-      st.info("Aún no hay registros en Google Sheets.")
-  except Exception as e:
-    st.error(f"Error al leer registros: {e}")
+  except Exception:
+    pass
