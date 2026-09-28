@@ -433,11 +433,14 @@ with tab2:
             df_limpio = df_editado.fillna("")
             matriz_datos = [headers] + df_limpio.values.tolist()
 
-            # SOLUCIÓN DEFINITIVA: Limpiamos toda la hoja de manera explícita y rellenamos desde A1
-            ws.batch_clear(["A1:Z1000"])
-
+            # Forzamos limpieza total y reescritura celda por celda exacta
+            ws.clear()
             if len(matriz_datos) > 0:
-              ws.update(range_name="A1", values=matriz_datos)
+              # Escribir fila por fila para evitar bloqueos de la API de Google
+              ws.resize(
+                  rows=max(len(matriz_datos), 10), cols=len(headers)
+              )  # Redimensionar la hoja al tamaño exacto
+              ws.update("A1", matriz_datos)
 
             st.success(
                 "✅ ¡Google Sheets actualizado y registros eliminados con"
