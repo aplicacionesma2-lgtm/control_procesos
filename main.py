@@ -7,20 +7,21 @@ import gspread
 import pandas as pd
 import streamlit as st
 
+# Configuración de página
 st.set_page_config(
     page_title="Control de Procesos - Líneas",
     page_icon="📋",
     layout="wide",
 )
 
-# Enlace a tu Google Sheets
+# Enlace activo a Google Sheets
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
 
 @st.cache_resource
 def conectar_google_sheets():
-    """Conecta con la API de Google Sheets decodificando la clave desde Base64."""
+    """Conecta con la API de Google Sheets parseando credenciales de forma segura."""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
@@ -28,12 +29,16 @@ def conectar_google_sheets():
 
     info = dict(st.secrets["connections"]["gsheets"])
 
-    # Decodificación limpia de la clave privada para evitar corrupciones de texto o saltos de línea
+    # Manejo de la clave privada según la propiedad configurada en Secrets
     if "private_key_b64" in info:
-        b64_str = info.pop("private_key_b64")
+        b64_str = info.pop("private_key_b64").strip()
+        # Ajustar padding en caso de que falten caracteres al final
+        missing_padding = len(b64_str) % 4
+        if missing_padding:
+            b64_str += "=" * (4 - missing_padding)
         info["private_key"] = base64.b64decode(b64_str).decode("utf-8")
     elif "private_key" in info:
-        info["private_key"] = info["private_key"].replace("\\n", "\n")
+        info["private_key"] = info["private_key"].replace("\\n", "\n").strip()
 
     creds = Credentials.from_service_account_info(info, scopes=scopes)
     client = gspread.authorize(creds)
@@ -41,13 +46,14 @@ def conectar_google_sheets():
     return sheet
 
 
+# Intento de conexión
 try:
     ws = conectar_google_sheets()
 except Exception as e:
     st.error(f"❌ Error al conectar con Google Sheets: {e}")
     st.stop()
 
-# Catálogo relacional por defecto (Línea de Proceso -> Productos)
+# Catálogo por defecto
 CATALOGO_DEFAULT = {
     "MUFFINS": [
         "MUFFIN DE MANZANA - FRESCO - (UND)",
