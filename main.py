@@ -20,8 +20,8 @@ def conectar_google_sheets():
     creds = dict(st.secrets["connections"]["gsheets"])
     creds_clean = {k: v for k, v in creds.items() if k != "spreadsheet"}
 
-    # Asegurar que los saltos de linea de la clave RSA se procesen bien
     if "private_key" in creds_clean:
+        # Convierte los \n textuales de TOML en saltos de línea para el parser PEM
         creds_clean["private_key"] = creds_clean["private_key"].replace(
             "\\n", "\n"
         )
