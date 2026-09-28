@@ -433,13 +433,11 @@ with tab2:
             df_limpio = df_editado.fillna("")
             matriz_datos = [headers] + df_limpio.values.tolist()
 
-            # Método infalible: Actualizamos directamente el rango A1
-            # y si sobraban filas abajo, las limpiamos vaciando la hoja de forma segura
-            ws.clear()
-            ws.update(
-                range_name=f"A1:{chr(64 + len(headers))}{len(matriz_datos)}",
-                values=matriz_datos,
-            )
+            # SOLUCIÓN DEFINITIVA: Limpiamos toda la hoja de manera explícita y rellenamos desde A1
+            ws.batch_clear(["A1:Z1000"])
+
+            if len(matriz_datos) > 0:
+              ws.update(range_name="A1", values=matriz_datos)
 
             st.success(
                 "✅ ¡Google Sheets actualizado y registros eliminados con"
