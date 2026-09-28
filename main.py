@@ -1,6 +1,5 @@
 from datetime import datetime
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import streamlit as st
 
@@ -13,36 +12,79 @@ st.set_page_config(
 
 st.title("📋 Registro y Control de Producción - Pastelería")
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
-try:
-  # Configura tus credenciales (asegúrate de tener tu secret o archivo json configurado)
-  scope = [
-      "https://spreadsheets.google.com/feeds",
-      "https://www.googleapis.com/auth/drive",
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
+FILE_PATH = "procesos.xlsx"
+
+
+# --- CONEXIÓN A GOOGLE SHEETS (Con tu clave privada interna y segura) ---
+@st.cache_resource
+def conectar_google_sheets():
+  pk_lines = [
+      "-----BEGIN PRIVATE KEY-----",
+      "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQChFFBYCHDbTJt4",
+      "QIJVeEpflh0wWXFspNZg2Y8v9CukuWGq2O+28MzxM5O+Pv6ls1bThUGnOAD85Fxz",
+      "DBPUm9BqifGRugMNBcE876Af3YuG5s+tDMxF+kWFyQEVVpvZOCK6/WWHOS74F4LN",
+      "WSgcJCWAlMqXlulKGgvvzGLW7QqSW0viJ+DesQd5kNT766qvVO0WyIFzh87N9z70",
+      "lwjzNIiBov/7XgKaagawNjaVm5Ob/2AGzU/82VMfB/DZoJhDEpcJ6qmHLgcKVqZT",
+      "RHLJZshWO4H8Kqxqfmvou6qziydJdBzTrFiqZ359bsUThHpl23mT5OgE4A0xYNY8",
+      "Cxr6Nt+FAgMBAAECggEAHNl4TVgPrHtTQg2dukSd33JRnoH6gligi76TemV7Npi8",
+      "QR7zChslPZL9BF8geRl+dMpiWJp7dM/KrhFM8PCKOrajlTPRTZEJC8qoLWTe00W+",
+      "DtKiuGrLbltyjfmR1q0K7V4qg7ZObwE4/GHaQPYJYHbltRJCjLLPDf8XecKBOPaH",
+      "ulp7EErv7WetyxJC2tqb/cZ2RiSu81ixTMhJkm6H4TnjREPj3FigR3kKjGutbdIS",
+      "4BmGX1MoX7d1ehYA06vt7Xj6uiPuLRxg/AfpZje9NJiH3W+JhrarGqalY2Wwnxe7",
+      "xaA5NJlRQ/pZUkbItVBaOwZc9cmF7hLXq6DKFnCnOQKBgQDTtIXUOBmuHOcC3LTq",
+      "1I6p8voTTofMoT1MSS4OD43hQOFMyiGWs0xpSmqJVmAtckKQmA9P6FdgmV93C8yO",
+      "Fza3m5o8QsfiamCYGTsoLFC6THdqqic2eUId3DCS79ln3M6HvY24oEj/aWgD5lkY",
+      "4b5azGsGce6YO7ZuKne9VWoiDQKBgQDCyCQl0EDxrkjs+FHuhRxyn2jyh10q8T3z",
+      "GGzhugeleazB0Wp7Pa9paVJkGkaKs0KgZUX8cO08t4e+5wkcWgDRE56Ss443qf98",
+      "fpOOqzdLfy4l/QF+QeJ1DJZCONhKgBwjjV2h5EzVqxRq3yRY+Enn8jdVc9p7FKbU",
+      "bqD3DjftWQKBgBWScYicZtF9FHUQNEcxfZAHuD+7Ys8RJwPc+Rppr1VinRKMDjwi",
+      "7QhVkuGHsakv2WSOehD0ZeLr/fRNeXyJFQREkMTPMTr7B/i3qXWAfoFdRVXTHMfK",
+      "N1h/lVuDoS2aLFlckVJc0tNj1DuBf1avugvahJVVirBsdTxoi2b5iyUJAoGABymo",
+      "+qL/4GNSVzSCfszyUNy/1TtZF70rVAcv6dUXduRUkAQNcF7CVpQC7Z9xvKP+7TsM",
+      "Kc5VSwhMu55vXVWJ9iZMjISB1FYyCPf2oSZ2sBYLMmZtaaEunLNLyz+f5I11e3E1",
+      "YkCs+qaB57Qw9/yZaygjFMdf32rQ/7rZvHwPXnECgYB2InoDsMB1KT+83SL6r3tF",
+      "hY7EePnosi2XWmR4ialkcinN6CsxS5jZ7ZISxPb2fBgYDFQVoNhkq1aZA6au5S4T",
+      "UWTDUQLOBnTurhCFQ/+nElZAlX4nF4M6wKUTlUEQsy7J2cICbSA4tEvx9DEsy2m7",
+      "40bXZzRQtzP8ciNAuypvAg==",
+      "-----END PRIVATE KEY-----",
   ]
+  private_key_str = "\n".join(pk_lines)
 
-  # Si usas st.secrets para Streamlit Cloud:
-  creds_dict = dict(st.secrets["gcp_service_account"])
-  creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+  cred_dict = {
+      "type": "service_account",
+      "project_id": "control-procesos-510021",
+      "private_key_id": "4ba35503d5be0db7e99c9da752bb173efee0c609",
+      "private_key": private_key_str,
+      "client_email": (
+          "control-procesos@control-procesos-510021.iam.gserviceaccount.com"
+      ),
+      "client_id": "110338130362201619109",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": (
+          "https://www.googleapis.com/oauth2/v1/certs"
+      ),
+      "client_x509_cert_url": (
+          "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com"
+      ),
+      "universe_domain": "googleapis.com",
+  }
 
-  client = gspread.authorize(creds)
+  client = gspread.service_account_from_dict(cred_dict)
+  sheet = client.open_by_url(SPREADSHEET_URL).sheet1
+  return sheet
 
-  # Abre tu hoja de cálculo (reemplaza con el nombre exacto de tu archivo)
-  spreadsheet = client.open("REGISTRO_PRODUCCION")
-  hoja = spreadsheet.sheet1  # O usa spreadsheet.worksheet("NombreDePestaña")
 
-  # Leer datos actuales
-  data = hoja.get_all_records()
+try:
+  ws = conectar_google_sheets()
+  data = ws.get_all_records()
   df_actual = pd.DataFrame(data)
-
 except Exception as e:
-  st.error(
-      f"Error al conectar con Google Sheets: {e}. Verifica tus credenciales o"
-      " el nombre del archivo."
-  )
+  st.error(f"Error al conectar con Google Sheets: {e}")
   df_actual = pd.DataFrame()
 
-# --- DEFECTO DE ENCABEZADOS ESTÁNDAR ---
+# --- ENCABEZADOS ESTÁNDAR ---
 headers = [
     "PRODUCTO",
     "LÍNEA DE PROCESO",
@@ -61,7 +103,6 @@ headers = [
     "OBSERVACIÓN",
 ]
 
-# Si la hoja está totalmente vacía, inicializamos el DataFrame con las columnas correctas
 if df_actual.empty:
   df_actual = pd.DataFrame(columns=headers)
 
@@ -74,16 +115,21 @@ with st.form("form_produccion", clear_on_submit=True):
   with col1:
     producto_final = st.selectbox(
         "Producto",
-        ["MUFFIN DE MANZANA", "MUFFIN DE NARANJA", "BROWNIE", "ALFAJOR"],
+        [
+            "MUFFIN DE MANZANA - FRESCO - (UND)",
+            "MUFFIN DE NARANJA & CHOCOCHIPS - FRESCO - (UND)",
+            "MUFFIN DE BERRIES - FRESCO - (UND)",
+            "MUFFIN DE CHOCOLATE - FRESCO - (UND)",
+        ],
     )
-    linea_final = st.selectbox("Línea de Proceso", ["MUFFINS", "GALLETAS"])
+    linea_final = st.selectbox("Línea de Proceso", ["MUFFINS", "AMASADO"])
     fecha_p = st.date_input("Fecha de Producción (F.P)", datetime.now())
 
   with col2:
     lote = st.text_input("Lote")
     batch = st.text_input("Batch")
     responsable = st.text_input("Responsable")
-    equipo_final = st.text_input("Equipo Utilizado")
+    equipo_final = st.text_input("Equipo Utilizado", value="BATIDORA")
 
   with col3:
     cond_area = st.selectbox(
@@ -101,9 +147,9 @@ with st.form("form_produccion", clear_on_submit=True):
   with col5:
     hora_termino = st.time_input("Hora Término", datetime.now().time())
   with col6:
-    tiempo_calculado = st.text_input("Tiempo (ej. 15 min)")
+    tiempo_calculado = st.text_input("Tiempo (ej. 15 min)", value="15 min")
 
-  observacion_final = st.text_area("Observación")
+  observacion_final = st.text_area("Observación", value="CONFORME")
 
   submit_button = st.form_submit_button("Agregar Registro a la Tabla")
 
@@ -126,11 +172,13 @@ with st.form("form_produccion", clear_on_submit=True):
         "OBSERVACIÓN": observacion_final,
     }
 
-    # Añadir al DataFrame actual
     df_actual = pd.concat(
         [df_actual, pd.DataFrame([nueva_fila])], ignore_index=True
     )
-    st.success("¡Registro agregado localmente! Haz clic en guardar abajo.")
+    st.success(
+        "¡Registro agregado! Haz clic en 'Guardar Cambios' abajo para"
+        " sincronizar."
+    )
 
 # --- TABLA EDITABLE (PERMITE BORRAR Y EDITAR) ---
 st.subheader("Edición y Gestión de Registros (Puedes eliminar filas aquí)")
@@ -150,17 +198,14 @@ edited_df = st.data_editor(
 # --- BOTÓN PARA SINCRONIZAR CON GOOGLE SHEETS ---
 if st.button("💾 Guardar Cambios y Actualizar Google Sheets"):
   try:
-    # Limpiamos la hoja completa para evitar registros fantasma o desorden
-    hoja.clear()
+    ws.clear()
 
     if not edited_df.empty:
-      # Rellenamos nulos y armamos la estructura con cabeceras ordenadas
       df_limpio = edited_df.fillna("")
       data_to_update = [df_limpio.columns.tolist()] + df_limpio.values.tolist()
-      hoja.update(data_to_update)
+      ws.update(data_to_update)
     else:
-      # Si borraron todo, dejamos al menos las cabeceras limpias
-      hoja.update([headers])
+      ws.update([headers])
 
     st.success(
         "¡Google Sheets actualizado correctamente! Los registros eliminados"
