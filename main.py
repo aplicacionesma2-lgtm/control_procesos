@@ -1,6 +1,8 @@
+import base64
 import datetime
 import io
 import os
+from google.oauth2.service_account import Credentials
 import gspread
 import pandas as pd
 import streamlit as st
@@ -11,22 +13,30 @@ st.set_page_config(
     layout="wide",
 )
 
+# Enlace a tu Google Sheets
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
 
 @st.cache_resource
 def conectar_google_sheets():
-    creds = dict(st.secrets["connections"]["gsheets"])
-    creds_clean = {k: v for k, v in creds.items() if k != "spreadsheet"}
+    """Conecta con la API de Google Sheets decodificando la clave desde Base64."""
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
 
-    if "private_key" in creds_clean:
-        # Convierte los \n textuales de TOML en saltos de línea para el parser PEM
-        creds_clean["private_key"] = creds_clean["private_key"].replace(
-            "\\n", "\n"
-        )
+    info = dict(st.secrets["connections"]["gsheets"])
 
-    client = gspread.service_account_from_dict(creds_clean)
+    # Decodificación limpia de la clave privada para evitar corrupciones de texto o saltos de línea
+    if "private_key_b64" in info:
+        b64_str = info.pop("private_key_b64")
+        info["private_key"] = base64.b64decode(b64_str).decode("utf-8")
+    elif "private_key" in info:
+        info["private_key"] = info["private_key"].replace("\\n", "\n")
+
+    creds = Credentials.from_service_account_info(info, scopes=scopes)
+    client = gspread.authorize(creds)
     sheet = client.open_by_url(SPREADSHEET_URL).sheet1
     return sheet
 
@@ -37,6 +47,7 @@ except Exception as e:
     st.error(f"❌ Error al conectar con Google Sheets: {e}")
     st.stop()
 
+# Catálogo relacional por defecto (Línea de Proceso -> Productos)
 CATALOGO_DEFAULT = {
     "MUFFINS": [
         "MUFFIN DE MANZANA - FRESCO - (UND)",
@@ -85,6 +96,7 @@ EQUIPOS_DEFAULT = [
 
 @st.cache_data(ttl=3600)
 def cargar_catalogos():
+    """Carga los catálogos desde el archivo Excel 'procesos.xlsx' si existe."""
     mapa_linea_productos = CATALOGO_DEFAULT.copy()
     equipos = EQUIPOS_DEFAULT
 
@@ -148,11 +160,15 @@ def cargar_catalogos():
 mapa_linea_productos, lista_equipos = cargar_catalogos()
 lista_lineas = list(mapa_linea_productos.keys())
 
+# --- NAVEGACIÓN PRINCIPAL ---
 st.title("📋 FORMATO CONTROL DE PROCESOS LÍNEAS")
 tab1, tab2 = st.tabs(
     ["📝 Nuevo Registro", "✏️ Gestionar / Editar / Eliminar Historial"]
 )
 
+# ==========================================
+# PESTAÑA 1: NUEVO REGISTRO
+# ==========================================
 with tab1:
     st.subheader("1. Selección de Línea, Producto y Equipo")
     col_a, col_b, col_c = st.columns(3)
@@ -363,6 +379,9 @@ with tab1:
         except Exception as e:
             st.error(f"❌ Error al guardar en Google Sheets: {e}")
 
+# ==========================================
+# PESTAÑA 2: EDITAR Y ELIMINAR HISTORIAL
+# ==========================================
 with tab2:
     st.subheader("📊 Edición, Eliminación y Descarga de Registros")
     st.info(
