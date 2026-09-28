@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide",
 )
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1Dyl-sRsm_TskiPrtE6Kp7wmcZ5bng4pdelbDuZEypB0/edit?gid=0#gid=0"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
 
