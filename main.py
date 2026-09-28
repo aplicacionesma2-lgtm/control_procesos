@@ -65,82 +65,8 @@ def conectar_google_sheets():
       "auth_provider_x509_cert_url": (
           "https://www.googleapis.com/oauth2/v1/certs"
       ),
-      "client_x509_cert¡Esa es una **excelente idea** y te pido disculpas por no habértelo propuesto antes! Querer obligar a `st.data_editor` a borrar filas en Google Sheets a través de reescrituras masivas suele fallar por los permisos y la caché de la API. 
-
-En lugar de depender de la papelera invisible de la tabla, añadir **botones explícitos de "Eliminar" y "Editar" fila por fila** es 100% infalible, elegante y te da el control absoluto.
-
-Aquí tienes el archivo **`main.py` completo y rediseñado** con esta lógica limpia y directa:
-
-```python
-import datetime
-import io
-import os
-import gspread
-import pandas as pd
-import streamlit as st
-
-# Configuración de página
-st.set_page_config(
-    page_title="Control de Procesos - Líneas",
-    page_icon="📋",
-    layout="wide",
-)
-
-SPREADSHEET_URL = "[https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0](https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0)"
-FILE_PATH = "procesos.xlsx"
-
-
-# --- CONEXIÓN SEGURA A GOOGLE SHEETS ---
-@st.cache_resource
-def conectar_google_sheets():
-  pk_lines = [
-      "-----BEGIN PRIVATE KEY-----",
-      "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQChFFBYCHDbTJt4",
-      "QIJVeEpflh0wWXFspNZg2Y8v9CukuWGq2O+28MzxM5O+Pv6ls1bThUGnOAD85Fxz",
-      "DBPUm9BqifGRugMNBcE876Af3YuG5s+tDMxF+kWFyQEVVpvZOCK6/WWHOS74F4LN",
-      "WSgcJCWAlMqXlulKGgvvzGLW7QqSW0viJ+DesQd5kNT766qvVO0WyIFzh87N9z70",
-      "lwjzNIiBov/7XgKaagawNjaVm5Ob/2AGzU/82VMfB/DZoJhDEpcJ6qmHLgcKVqZT",
-      "RHLJZshWO4H8Kqxqfmvou6qziydJdBzTrFiqZ359bsUThHpl23mT5OgE4A0xYNY8",
-      "Cxr6Nt+FAgMBAAECggEAHNl4TVgPrHtTQg2dukSd33JRnoH6gligi76TemV7Npi8",
-      "QR7zChslPZL9BF8geRl+dMpiWJp7dM/KrhFM8PCKOrajlTPRTZEJC8qoLWTe00W+",
-      "DtKiuGrLbltyjfmR1q0K7V4qg7ZObwE4/GHaQPYJYHbltRJCjLLPDf8XecKBOPaH",
-      "ulp7EErv7WetyxJC2tqb/cZ2RiSu81ixTMhJkm6H4TnjREPj3FigR3kKjGutbdIS",
-      "4BmGX1MoX7d1ehYA06vt7Xj6uiPuLRxg/AfpZje9NJiH3W+JhrarGqalY2Wwnxe7",
-      "xaA5NJlRQ/pZUkbItVBaOwZc9cmF7hLXq6DKFnCnOQKBgQDTtIXUOBmuHOcC3LTq",
-      "1I6p8voTTofMoT1MSS4OD43hQOFMyiGWs0xpSmqJVmAtckKQmA9P6FdgmV93C8yO",
-      "Fza3m5o8QsfiamCYGTsoLFC6THdqqic2eUId3DCS79ln3M6HvY24oEj/aWgD5lkY",
-      "4b5azGsGce6YO7ZuKne9VWoiDQKBgQDCyCQl0EDxrkjs+FHuhRxyn2jyh10q8T3z",
-      "GGzhugeleazB0Wp7Pa9paVJkGkaKs0KgZUX8cO08t4e+5wkcWgDRE56Ss443qf98",
-      "fpOOqzdLfy4l/QF+QeJ1DJZCONhKgBwjjV2h5EzVqxRq3yRY+Enn8jdVc9p7FKbU",
-      "bqD3DjftWQKBgBWScYicZtF9FHUQNEcxfZAHuD+7Ys8RJwPc+Rppr1VinRKMDjwi",
-      "7QhVkuGHsakv2WSOehD0ZeLr/fRNeXyJFQREkMTPMTr7B/i3qXWAfoFdRVXTHMfK",
-      "N1h/lVuDoS2aLFlckVJc0tNj1DuBf1avugvahJVVirBsdTxoi2b5iyUJAoGABymo",
-      "+qL/4GNSVzSCfszyUNy/1TtZF70rVAcv6dUXduRUkAQNcF7CVpQC7Z9xvKP+7TsM",
-      "Kc5VSwhMu55vXVWJ9iZMjISB1FYyCPf2oSZ2sBYLMmZtaaEunLNLyz+f5I11e3E1",
-      "YkCs+qaB57Qw9/yZaygjFMdf32rQ/7rZvHwPXnECgYB2InoDsMB1KT+83SL6r3tF",
-      "hY7EePnosi2XWmR4ialkcinN6CsxS5jZ7ZISxPb2fBgYDFQVoNhkq1aZA6au5S4T",
-      "UWTDUQLOBnTurhCFQ/+nElZAlX4nF4M6wKUTlUEQsy7J2cICbSA4tEvx9DEsy2m7",
-      "40bXZzRQtzP8ciNAuypvAg==",
-      "-----END PRIVATE KEY-----",
-  ]
-  private_key_str = "\n".join(pk_lines)
-
-  cred_dict = {
-      "type": "service_account",
-      "project_id": "control-procesos-510021",
-      "private_key_id": "4ba35503d5be0db7e99c9da752bb173efee0c609",
-      "private_key": private_key_str,
-      "client_email": (
-          "control-procesos@control-procesos-510021.iam.gserviceaccount.com"
-      ),
-      "client_id": "110338130362201619109",
-      "auth_uri": "[https://accounts.google.com/o/oauth2/auth](https://accounts.google.com/o/oauth2/auth)",
-      "token_uri": "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
-      "auth_provider_x509_cert_url": (
-          "[https://www.googleapis.com/oauth2/v1/certs](https://www.googleapis.com/oauth2/v1/certs)"
-      ),
       "client_x509_cert_url": (
-          "[https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com](https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com)"
+          "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com"
       ),
       "universe_domain": "googleapis.com",
   }
@@ -444,4 +370,76 @@ with tab1:
       ws.append_row(fila_nueva)
       st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
       st.rerun()
-    except Exception
+    except Exception as e:
+      st.error(f"❌ Error al guardar: {e}")
+
+# ==========================================
+# PESTAÑA 2: GESTIONAR, ELIMINAR Y EXPORTAR (CON BOTONES EXPLÍCITOS)
+# ==========================================
+with tab2:
+  st.subheader("🗑️ Gestión y Eliminación de Registros en Google Sheets")
+  st.info(
+      "💡 Cada registro listado abajo cuenta con su propio botón de eliminación"
+      " directa en la nube."
+  )
+
+  try:
+    registros = ws.get_all_records()
+    if registros:
+      for i, reg in enumerate(registros):
+        with st.container():
+          cols = st.columns([4, 1])
+          with cols[0]:
+            st.markdown(
+                f"**#{i+1} | Producto:** `{reg.get('PRODUCTO')}` | **Línea:**"
+                f" `{reg.get('LÍNEA DE PROCESO')}` | **Lote:**"
+                f" `{reg.get('LOTE')}` | **Responsable:**"
+                f" `{reg.get('RESPONSABLE')}`"
+            )
+          with cols[1]:
+            # Botón único con clave única por índice
+            if st.button("🗑️ Eliminar", key=f"btn_del_{i}"):
+              try:
+                # Las filas en Sheets empiezan en la fila 2 (la fila 1 son las cabeceras)
+                fila_a_borrar = i + 2
+                ws.delete_rows(fila_a_borrar)
+                st.success(f"✅ ¡Registro #{i+1} eliminado de Google Sheets!")
+                st.rerun()
+              except Exception as err:
+                st.error(f"Error al eliminar fila: {err}")
+          st.divider()
+
+      st.markdown("---")
+      st.subheader("📥 Exportar Historial Completo")
+      df_registros = pd.DataFrame(registros)
+      col_down1, col_down2 = st.columns(2)
+
+      buffer_excel = io.BytesIO()
+      with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
+        df_registros.to_excel(
+            writer, index=False, sheet_name="Control_Procesos"
+        )
+      data_excel = buffer_excel.getvalue()
+
+      with col_down1:
+        st.download_button(
+            label="📊 Descargar en Excel (.xlsx)",
+            data=data_excel,
+            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+      data_csv = df_registros.to_csv(index=False).encode("utf-8")
+      with col_down2:
+        st.download_button(
+            label="📄 Descargar en CSV (.csv)",
+            data=data_csv,
+            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    else:
+      st.info("Aún no hay registros en Google Sheets.")
+  except Exception as e:
+    st.error(f"Error al leer registros: {e}")
