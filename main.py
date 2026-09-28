@@ -84,6 +84,28 @@ except Exception as e:
   st.error(f"❌ Error al conectar con Google Sheets: {e}")
   df_actual = pd.DataFrame()
 
+# --- CABECERAS ESTÁNDAR UNIFICADAS ---
+headers = [
+    "PRODUCTO",
+    "LÍNEA DE PROCESO",
+    "CONDICIONES DEL AREA DE TRABAJO",
+    "F.P",
+    "LOTE",
+    "BATCH",
+    "EQUIPO UTILIZADO",
+    "HORA INICIO",
+    "CONDICIONES DEL EQUIPO",
+    "CONDICIONES DE LOS INSUMOS",
+    "CARACTERISTICAS DEL PRODUCTO",
+    "HORA TÉRMINO",
+    "TIEMPO",
+    "RESPONSABLE",
+    "OBSERVACIÓN",
+]
+
+if df_actual.empty:
+  df_actual = pd.DataFrame(columns=headers)
+
 # Catálogo por defecto (Línea -> Productos)
 CATALOGO_DEFAULT = {
     "MUFFINS": [
@@ -192,27 +214,6 @@ def cargar_catalogos():
 mapa_linea_productos, lista_equipos = cargar_catalogos()
 lista_lineas = list(mapa_linea_productos.keys())
 
-headers = [
-    "PRODUCTO",
-    "LÍNEA DE PROCESO",
-    "F.P",
-    "LOTE",
-    "BATCH",
-    "RESPONSABLE",
-    "CONDICIONES DEL AREA DE TRABAJO",
-    "CONDICIONES DEL EQUIPO",
-    "CONDICIONES DE LOS INSUMOS",
-    "CARACTERISTICAS DEL PRODUCTO",
-    "HORA INICIO",
-    "HORA TÉRMINO",
-    "TIEMPO",
-    "EQUIPO UTILIZADO",
-    "OBSERVACIÓN",
-]
-
-if df_actual.empty:
-  df_actual = pd.DataFrame(columns=headers)
-
 # --- NAVEGACIÓN PRINCIPAL ---
 st.title("📋 FORMATO CONTROL DE PROCESOS LÍNEAS")
 tab1, tab2 = st.tabs(
@@ -220,7 +221,7 @@ tab1, tab2 = st.tabs(
 )
 
 # ==========================================
-# PESTAÑA 1: NUEVO REGISTRO (CON SELECCIÓN EN CASCADA)
+# PESTAÑA 1: NUEVO REGISTRO (EN CASCADA)
 # ==========================================
 with tab1:
   st.subheader("1. Selección de Línea, Producto y Equipo")
@@ -368,28 +369,32 @@ with tab1:
     )
 
   if btn_guardar:
+    # ORDEN EXACTO QUE COINCIDE CON LAS COLUMNAS DE LA HOJA
     fila_nueva = [
-        producto_final,
-        linea_final,
-        fecha_p.strftime("%Y-%m-%d"),
-        lote,
-        batch,
-        responsable,
-        cond_area,
-        cond_equipo,
-        cond_insumos,
-        caract_producto,
-        hora_inicio.strftime("%H:%M"),
-        hora_termino.strftime("%H:%M"),
-        tiempo_calculado,
-        equipo_final,
-        observacion_final,
+        producto_final,  # A: PRODUCTO
+        linea_final,  # B: LÍNEA DE PROCESO
+        cond_area,  # C: CONDICIONES DEL AREA DE TRABAJO
+        fecha_p.strftime("%Y-%m-%d"),  # D: F.P
+        lote,  # E: LOTE
+        batch,  # F: BATCH
+        equipo_final,  # G: EQUIPO UTILIZADO
+        hora_inicio.strftime("%H:%M"),  # H: HORA INICIO
+        cond_equipo,  # I: CONDICIONES DEL EQUIPO
+        cond_insumos,  # J: CONDICIONES DE LOS INSUMOS
+        caract_producto,  # K: CARACTERISTICAS DEL PRODUCTO
+        hora_termino.strftime("%H:%M"),  # L: HORA TÉRMINO
+        tiempo_calculado,  # M: TIEMPO
+        responsable,  # N: RESPONSABLE
+        observacion_final,  # O: OBSERVACIÓN
     ]
 
     try:
       datos_existentes = ws.get_all_values()
       if not datos_existentes:
         ws.append_row(headers)
+      else:
+        # Aseguramos que la primera fila tenga las cabeceras exactas
+        ws.update([headers], range_name="A1")
 
       ws.append_row(fila_nueva)
       st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
@@ -398,7 +403,7 @@ with tab1:
       st.error(f"❌ Error al guardar en Google Sheets: {e}")
 
 # ==========================================
-# PESTAÑA 2: EDITAR Y ELIMINAR HISTORIAL (CON SINCRONIZACIÓN DE BORRADO)
+# PESTAÑA 2: EDITAR Y ELIMINAR HISTORIAL
 # ==========================================
 with tab2:
   st.subheader("📊 Edición, Eliminación y Descarga de Registros")
@@ -426,14 +431,14 @@ with tab2:
         ):
           try:
             ws.clear()
+            # Forzar la reescritura de cabeceras estándar + datos limpios
             if not df_editado.empty:
               df_limpio = df_editado.fillna("")
               ws.update(
-                  [df_limpio.columns.values.tolist()]
-                  + df_limpio.values.tolist()
+                  [headers] + df_limpio.values.tolist(), range_name="A1"
               )
             else:
-              ws.update([headers])
+              ws.update([headers], range_name="A1")
 
             st.success(
                 "✅ ¡Google Sheets actualizado y registros eliminados con"
