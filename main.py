@@ -430,19 +430,20 @@ with tab2:
             "💾 Guardar Cambios en Google Sheets", use_container_width=True
         ):
           try:
-            # 1. Preparamos los datos limpios asegurando que no queden valores nulos de pandas
             df_limpio = df_editado.fillna("")
-
-            # 2. Armamos la matriz completa (Cabeceras + Filas actuales)
             matriz_datos = [headers] + df_limpio.values.tolist()
 
-            # 3. Borramos todo el contenido anterior de forma segura y escribimos la nueva matriz
+            # Método infalible: Actualizamos directamente el rango A1
+            # y si sobraban filas abajo, las limpiamos vaciando la hoja de forma segura
             ws.clear()
-            ws.update(matriz_datos)
+            ws.update(
+                range_name=f"A1:{chr(64 + len(headers))}{len(matriz_datos)}",
+                values=matriz_datos,
+            )
 
             st.success(
                 "✅ ¡Google Sheets actualizado y registros eliminados con"
-                " éxito en la nube!"
+                " éxito!"
             )
             st.rerun()
           except Exception as e:
