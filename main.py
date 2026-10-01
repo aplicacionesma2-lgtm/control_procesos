@@ -16,7 +16,7 @@ st.set_page_config(
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
-# --- CABECERAS ESTÁNDAR UNIFICADAS (Con columna ID_REGISTRO para sincronización precisa) ---
+# --- CABECERAS ESTÁNDAR UNIFICADAS ---
 HEADERS = [
     "ID_REGISTRO",
     "PRODUCTO",
@@ -36,21 +36,43 @@ HEADERS = [
     "OBSERVACIÓN",
 ]
 
-# --- CONEXIÓN SEGURA A GOOGLE SHEETS VIA ST.SECRETS ---
+# CREDENCIALES POR DEFECTO DE RESPALDO
+CRED_FALLBACK = {
+    "type": "service_account",
+    "project_id": "control-procesos-510021",
+    "private_key_id": "aafa643ccb5578aabb4e3747a39c0fa95cac451a",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKkwggSkAgEAAoIBAQDBBJfKLxL38J+e\n7LS6lFB91EN+vbYs9VhrkjvIA3F7DdEKkW0zpcV0zY3BOQ0gadcDzc+Kf2VhHFYi\nVtub62RIm21bigdql/mMNgVliXnHfOOFQNPeTjdQYGMM6/v8xBemqhVubm2RS822\nOkwYaG41iy0av0l3ssqPPe6Os5UpEIGApDc5ERK8kNAAR7ZXGkNzkkp/KzYw/HCL\n0n9X5PBqjqcw4avCwbiGHgw00iZo7sqNAN2GlyuYqQaaQ8W6/aAwQFwgotscvocF\n7rexVHTIQS3iwnLYGscGf0B/qsz+UAzsym7xj1HDsdXs/Cuy9Eu+2ESsryV+wwM8\nUCTeXpGpAgMBAAECggEAHutPrmdijD2rMC/eVpoOF84CHuIgdey6ZIb5FRX6Hnps\n31rC6bhXHFoWKFrtf6D8vMMCCT9Vm9wIbzlHNh+bwabGOpjujbR5GO0JacW/MIXQ\nw4aKOe0BHtrF2yrNQ6Uc3cmWo8lEO3dvZU7K5EkMSH76M3PrfqVxHcePuKPLU9el\n58moIbxis4QXkrdE6eoSP1SFlLHixwFNfO4+6YA7RQbK/g3tTqu+AM8jN8SyuL1f\nrAI2WkVrS5Fj9TkLvU6ylQvF7W4GDd6oSSmZRovMTtJEU9zDJLFJuffLvLWWI6g2\nlVQdxI7vhY+YMXyQ/NYTOHfsZCcGdZU+jLhscps9dQKBgQDuNysdKrTXGRWiorpA\nmnW18cOr0BuZ5mWHeyHxDI3bzKqhWVzqMxw1s2MOLZnoTQ39phIWl0S+s3RcEmCO\nHf8rGpby6CGCHmu897rdp1qkCaU0udhNVn6ctD/NH6srk8aexGpaV0zYQezBQkUu\nMLIj+Nbh96B/SXxhai8bK7Q05QKBgQDPbZkSj3EjeCduSHUQzYYPu0ap0o9ubQHK\nRG9g5tPlDbgII0XJAJQT3S6c+ma9LkSowRDMLZOOXsRAJf5rbcxd/G7SELQ6NDDa\njmv5r+uQ4JaFBFW9OZDwIFTIVp7nq2eSas6zZL91RSVXKa5mufh2Y8LBjpkWG7pG\nWn2fqj+BdQKBgQCj8uJAa7EUzVXfniGT7vqOo3spF8y3SiOcb/l3Pk2v9heFfsx8\n/3ot122YR3hCsi2r4g1W8PtGSJoP+DHt/eUtlFpJicvuEuPRpao9fT3b4iuKs1GU\nQLBZR5EVqvMSxd0QTlxoGudve0fn5qVYWflw2oWB9fzHPhtVrFAJYjXfpQKBgQC0\ncV/uwG+oblbG3itQQam0t7KB+tShOByNizjksAh2wpdsJNsJPwKRwSBSmJWVTtGV\nh9YH+EHbYN8R+rs3Ux2sSPNStAtEcrBo/+o4G+wtbOIjtqCrao+GBGocmRXE7Nu9\niEJl1mejKVKRX4YCgRb+TkxWuqi7jcVefEu6AI0cHQKBgHP0FKxE6bPgYPceXtNV\nVICr1sWxBEamX72kkAZ930B+F6t6wDwSJncfgamlQEpnuSSd3rE8D/K+hm4q4A2d\nTIMDFdBn8eybpXb9mDC9ADdzyz6yF0mPEvKgG+q/De+oPwjqrDBDI7fRrwSUqaaV\ntTOhmvYbJp7/aJD6BPwwFjmn\n-----END PRIVATE KEY-----\n",
+    "client_email": "control-procesos@control-procesos-510021.iam.gserviceaccount.com",
+    "client_id": "110338130362201619109",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com",
+}
+
+# --- CONEXIÓN ROBUSTA A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    """Conecta a Google Sheets utilizando Streamlit Secrets."""
+    """Intenta conectar con st.secrets de forma segura y cae en el diccionario local si no existe."""
+    cred_dict = None
+    
+    # Manejo seguro del acceso a st.secrets para evitar el crash/KeyError de Streamlit
     try:
-        # Lee las credenciales de forma segura desde st.secrets["gcp_service_account"]
-        cred_dict = dict(st.secrets["gcp_service_account"])
+        if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
+            cred_dict = dict(st.secrets["gcp_service_account"])
+    except Exception:
+        cred_dict = None
+
+    # Fallback si secrets.toml no tiene la clave configurada
+    if not cred_dict:
+        cred_dict = CRED_FALLBACK
+
+    try:
         client = gspread.service_account_from_dict(cred_dict)
         sheet = client.open_by_url(SPREADSHEET_URL).sheet1
         return sheet
     except Exception as e:
-        st.error(
-            "❌ Error al conectar con Google Sheets. Verifique la configuración de secrets.toml: "
-            f"{e}"
-        )
+        st.error(f"❌ Error al conectar con Google Sheets: {e}")
         return None
 
 
@@ -61,7 +83,7 @@ if ws:
         data = ws.get_all_records()
         df_actual = pd.DataFrame(data)
     except Exception as e:
-        st.error(f"❌ Error al leer la hoja de cálculo: {e}")
+        st.error(f"❌ Error al obtener datos de Google Sheets: {e}")
         df_actual = pd.DataFrame(columns=HEADERS)
 else:
     df_actual = pd.DataFrame(columns=HEADERS)
@@ -263,7 +285,6 @@ with tab1:
         if not ws:
             st.error("❌ No hay conexión activa con Google Sheets.")
         else:
-            # Identificador único para evitar cruce de filas
             registro_id = str(uuid.uuid4())[:8]
 
             fila_nueva = [
@@ -324,14 +345,12 @@ with tab2:
                         st.markdown(f"### Registros encontrados para la fecha: `{fecha_seleccionada}`")
 
                         for local_idx, row in df_filtrado.iterrows():
-                            # Fila real calculada dinámicamente
                             sheet_row_num = local_idx + 2
-                            reg_id = row.get("ID_REGISTRO", f"ROW_{sheet_row_num}")
 
                             with st.expander(
                                 f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | Resp: {row.get('RESPONSABLE')}"
                             ):
-                                with st.form(key=f"form_edit_{sheet_row_num}_{reg_id}"):
+                                with st.form(key=f"form_edit_{sheet_row_num}_{row.get('ID_REGISTRO', local_idx)}"):
                                     st.write(f"Editando registro (Fila en Google Sheets: {sheet_row_num})")
 
                                     col_e1, col_e2, col_e3 = st.columns(3)
@@ -352,9 +371,8 @@ with tab2:
 
                                     if btn_actualizar:
                                         try:
-                                            # CORRECCIÓN: "CONDICIONES DE LOS INSUMOS" corregido
                                             fila_actualizada = [
-                                                reg_id,
+                                                row.get("ID_REGISTRO", str(uuid.uuid4())[:8]),
                                                 nuevo_prod,
                                                 nueva_linea,
                                                 row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME"),
@@ -382,7 +400,7 @@ with tab2:
 
                                 if st.button(
                                     "🗑️ Eliminar este registro permanentemente",
-                                    key=f"del_{sheet_row_num}_{reg_id}",
+                                    key=f"del_{sheet_row_num}_{row.get('ID_REGISTRO', local_idx)}",
                                 ):
                                     try:
                                         ws.delete_rows(sheet_row_num)
