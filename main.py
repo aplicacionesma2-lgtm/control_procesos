@@ -16,6 +16,12 @@ st.set_page_config(
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
+# OPCIONES ESTÁNDAR PARA CONDICIONES DE CALIDAD Y ENTORNO
+OPCIONES_CONFORMIDAD = [
+    "CONFORME, LIMPIO Y DESINFECTADO",
+    "NO CONFORME",
+]
+
 # --- CABECERAS ESTÁNDAR UNIFICADAS ---
 HEADERS = [
     "ID_REGISTRO",
@@ -274,13 +280,13 @@ with tab1:
         st.subheader("3. Condiciones del Entorno e Insumos")
         col8, col9, col10, col11 = st.columns(4)
         with col8:
-            cond_area = st.radio("CONDICIONES AREA TRABAJO", ["CONFORME", "NO CONFORME"], horizontal=True)
+            cond_area = st.selectbox("CONDICIONES AREA TRABAJO", OPCIONES_CONFORMIDAD)
         with col9:
-            cond_equipo = st.radio("CONDICIONES EQUIPO", ["CONFORME", "NO CONFORME"], horizontal=True)
+            cond_equipo = st.selectbox("CONDICIONES EQUIPO", OPCIONES_CONFORMIDAD)
         with col10:
-            cond_insumos = st.radio("CONDICIONES INSUMOS", ["CONFORME", "NO CONFORME"], horizontal=True)
+            cond_insumos = st.selectbox("CONDICIONES INSUMOS", OPCIONES_CONFORMIDAD)
         with col11:
-            caract_producto = st.radio("CARACTERISTICAS PRODUCTO", ["CONFORME", "NO CONFORME"], horizontal=True)
+            caract_producto = st.selectbox("CARACTERISTICAS PRODUCTO", OPCIONES_CONFORMIDAD)
 
         st.subheader("4. Horarios y Tiempo de Proceso")
         col12, col13, col14 = st.columns(3)
@@ -400,27 +406,26 @@ with tab2:
 
                                     st.markdown("##### 2. Condiciones de Calidad y Entorno")
                                     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                                    opts_conformidad = ["CONFORME", "NO CONFORME"]
                                     
-                                    val_area = str(row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME")).strip()
-                                    idx_area = 0 if val_area == "CONFORME" else 1
+                                    val_area = str(row.get("CONDICIONES DEL AREA DE TRABAJO", "")).strip()
+                                    idx_area = 0 if "NO CONFORME" not in val_area else 1
                                     with col_c1:
-                                        nueva_cond_area = st.selectbox("ÁREA DE TRABAJO", options=opts_conformidad, index=idx_area)
+                                        nueva_cond_area = st.selectbox("ÁREA DE TRABAJO", options=OPCIONES_CONFORMIDAD, index=idx_area)
 
-                                    val_eq = str(row.get("CONDICIONES DEL EQUIPO", "CONFORME")).strip()
-                                    idx_eq = 0 if val_eq == "CONFORME" else 1
+                                    val_eq = str(row.get("CONDICIONES DEL EQUIPO", "")).strip()
+                                    idx_eq = 0 if "NO CONFORME" not in val_eq else 1
                                     with col_c2:
-                                        nueva_cond_equipo = st.selectbox("CONDICIÓN EQUIPO", options=opts_conformidad, index=idx_eq)
+                                        nueva_cond_equipo = st.selectbox("CONDICIÓN EQUIPO", options=OPCIONES_CONFORMIDAD, index=idx_eq)
 
-                                    val_ins = str(row.get("CONDICIONES DE LOS INSUMOS", "CONFORME")).strip()
-                                    idx_ins = 0 if val_ins == "CONFORME" else 1
+                                    val_ins = str(row.get("CONDICIONES DE LOS INSUMOS", "")).strip()
+                                    idx_ins = 0 if "NO CONFORME" not in val_ins else 1
                                     with col_c3:
-                                        nueva_cond_insumos = st.selectbox("CONDICIÓN INSUMOS", options=opts_conformidad, index=idx_ins)
+                                        nueva_cond_insumos = st.selectbox("CONDICIÓN INSUMOS", options=OPCIONES_CONFORMIDAD, index=idx_ins)
 
-                                    val_car = str(row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME")).strip()
-                                    idx_car = 0 if val_car == "CONFORME" else 1
+                                    val_car = str(row.get("CARACTERISTICAS DEL PRODUCTO", "")).strip()
+                                    idx_car = 0 if "NO CONFORME" not in val_car else 1
                                     with col_c4:
-                                        nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=opts_conformidad, index=idx_car)
+                                        nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=OPCIONES_CONFORMIDAD, index=idx_car)
 
                                     st.markdown("##### 3. Horarios y Observaciones")
                                     col_h1, col_h2, col_h3 = st.columns(3)
