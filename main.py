@@ -36,36 +36,67 @@ HEADERS = [
     "OBSERVACIÓN",
 ]
 
-# CREDENCIALES POR DEFECTO DE RESPALDO
-CRED_FALLBACK = {
-    "type": "service_account",
-    "project_id": "control-procesos-510021",
-    "private_key_id": "aafa643ccb5578aabb4e3747a39c0fa95cac451a",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKkwggSkAgEAAoIBAQDBBJfKLxL38J+e\n7LS6lFB91EN+vbYs9VhrkjvIA3F7DdEKkW0zpcV0zY3BOQ0gadcDzc+Kf2VhHFYi\nVtub62RIm21bigdql/mMNgVliXnHfOOFQNPeTjdQYGMM6/v8xBemqhVubm2RS822\nOkwYaG41iy0av0l3ssqPPe6Os5UpEIGApDc5ERK8kNAAR7ZXGkNzkkp/KzYw/HCL\n0n9X5PBqjqcw4avCwbiGHgw00iZo7sqNAN2GlyuYqQaaQ8W6/aAwQFwgotscvocF\n7rexVHTIQS3iwnLYGscGf0B/qsz+UAzsym7xj1HDsdXs/Cuy9Eu+2ESsryV+wwM8\nUCTeXpGpAgMBAAECggEAHutPrmdijD2rMC/eVpoOF84CHuIgdey6ZIb5FRX6Hnps\n31rC6bhXHFoWKFrtf6D8vMMCCT9Vm9wIbzlHNh+bwabGOpjujbR5GO0JacW/MIXQ\nw4aKOe0BHtrF2yrNQ6Uc3cmWo8lEO3dvZU7K5EkMSH76M3PrfqVxHcePuKPLU9el\n58moIbxis4QXkrdE6eoSP1SFlLHixwFNfO4+6YA7RQbK/g3tTqu+AM8jN8SyuL1f\nrAI2WkVrS5Fj9TkLvU6ylQvF7W4GDd6oSSmZRovMTtJEU9zDJLFJuffLvLWWI6g2\nlVQdxI7vhY+YMXyQ/NYTOHfsZCcGdZU+jLhscps9dQKBgQDuNysdKrTXGRWiorpA\nmnW18cOr0BuZ5mWHeyHxDI3bzKqhWVzqMxw1s2MOLZnoTQ39phIWl0S+s3RcEmCO\nHf8rGpby6CGCHmu897rdp1qkCaU0udhNVn6ctD/NH6srk8aexGpaV0zYQezBQkUu\nMLIj+Nbh96B/SXxhai8bK7Q05QKBgQDPbZkSj3EjeCduSHUQzYYPu0ap0o9ubQHK\nRG9g5tPlDbgII0XJAJQT3S6c+ma9LkSowRDMLZOOXsRAJf5rbcxd/G7SELQ6NDDa\njmv5r+uQ4JaFBFW9OZDwIFTIVp7nq2eSas6zZL91RSVXKa5mufh2Y8LBjpkWG7pG\nWn2fqj+BdQKBgQCj8uJAa7EUzVXfniGT7vqOo3spF8y3SiOcb/l3Pk2v9heFfsx8\n/3ot122YR3hCsi2r4g1W8PtGSJoP+DHt/eUtlFpJicvuEuPRpao9fT3b4iuKs1GU\nQLBZR5EVqvMSxd0QTlxoGudve0fn5qVYWflw2oWB9fzHPhtVrFAJYjXfpQKBgQC0\ncV/uwG+oblbG3itQQam0t7KB+tShOByNizjksAh2wpdsJNsJPwKRwSBSmJWVTtGV\nh9YH+EHbYN8R+rs3Ux2sSPNStAtEcrBo/+o4G+wtbOIjtqCrao+GBGocmRXE7Nu9\niEJl1mejKVKRX4YCgRb+TkxWuqi7jcVefEu6AI0cHQKBgHP0FKxE6bPgYPceXtNV\nVICr1sWxBEamX72kkAZ930B+F6t6wDwSJncfgamlQEpnuSSd3rE8D/K+hm4q4A2d\nTIMDFdBn8eybpXb9mDC9ADdzyz6yF0mPEvKgG+q/De+oPwjqrDBDI7fRrwSUqaaV\ntTOhmvYbJp7/aJD6BPwwFjmn\n-----END PRIVATE KEY-----\n",
-    "client_email": "control-procesos@control-procesos-510021.iam.gserviceaccount.com",
-    "client_id": "110338130362201619109",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com",
-}
-
-# --- CONEXIÓN ROBUSTA A GOOGLE SHEETS ---
+# --- CREDENCIAL DE CONEXIÓN CON FORMATO PEM VÁLIDO ---
 @st.cache_resource
 def conectar_google_sheets():
-    """Intenta conectar con st.secrets de forma segura y cae en el diccionario local si no existe."""
     cred_dict = None
-    
-    # Manejo seguro del acceso a st.secrets para evitar el crash/KeyError de Streamlit
+
+    # 1. Intentar cargar desde st.secrets si existe la clave
     try:
         if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
             cred_dict = dict(st.secrets["gcp_service_account"])
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
     except Exception:
         cred_dict = None
 
-    # Fallback si secrets.toml no tiene la clave configurada
+    # 2. Fallback: Usar la estructura privada en formato multilínea válido
     if not cred_dict:
-        cred_dict = CRED_FALLBACK
+        pk_lines = [
+            "-----BEGIN PRIVATE KEY-----",
+            "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQChFFBYCHDbTJt4",
+            "QIJVeEpflh0wWXFspNZg2Y8v9CukuWGq2O+28MzxM5O+Pv6ls1bThUGnOAD85Fxz",
+            "DBPUm9BqifGRugMNBcE876Af3YuG5s+tDMxF+kWFyQEVVpvZOCK6/WWHOS74F4LN",
+            "WSgcJCWAlMqXlulKGgvvzGLW7QqSW0viJ+DesQd5kNT766qvVO0WyIFzh87N9z70",
+            "lwjzNIiBov/7XgKaagawNjaVm5Ob/2AGzU/82VMfB/DZoJhDEpcJ6qmHLgcKVqZT",
+            "RHLJZshWO4H8Kqxqfmvou6qziydJdBzTrFiqZ359bsUThHpl23mT5OgE4A0xYNY8",
+            "Cxr6Nt+FAgMBAAECggEAHNl4TVgPrHtTQg2dukSd33JRnoH6gligi76TemV7Npi8",
+            "QR7zChslPZL9BF8geRl+dMpiWJp7dM/KrhFM8PCKOrajlTPRTZEJC8qoLWTe00W+",
+            "DtKiuGrLbltyjfmR1q0K7V4qg7ZObwE4/GHaQPYJYHbltRJCjLLPDf8XecKBOPaH",
+            "ulp7EErv7WetyxJC2tqb/cZ2RiSu81ixTMhJkm6H4TnjREPj3FigR3kKjGutbdIS",
+            "4BmGX1MoX7d1ehYA06vt7Xj6uiPuLRxg/AfpZje9NJiH3W+JhrarGqalY2Wwnxe7",
+            "xaA5NJlRQ/pZUkbItVBaOwZc9cmF7hLXq6DKFnCnOQKBgQDTtIXUOBmuHOcC3LTq",
+            "1I6p8voTTofMoT1MSS4OD43hQOFMyiGWs0xpSmqJVmAtckKQmA9P6FdgmV93C8yO",
+            "Fza3m5o8QsfiamCYGTsoLFC6THdqqic2eUId3DCS79ln3M6HvY24oEj/aWgD5lkY",
+            "4b5azGsGce6YO7ZuKne9VWoiDQKBgQDCyCQl0EDxrkjs+FHuhRxyn2jyh10q8T3z",
+            "GGzhugeleazB0Wp7Pa9paVJkGkaKs0KgZUX8cO08t4e+5wkcWgDRE56Ss443qf98",
+            "fpOOqzdLfy4l/QF+QeJ1DJZCONhKgBwjjV2h5EzVqxRq3yRY+Enn8jdVc9p7FKbU",
+            "bqD3DjftWQKBgBWScYicZtF9FHUQNEcxfZAHuD+7Ys8RJwPc+Rppr1VinRKMDjwi",
+            "7QhVkuGHsakv2WSOehD0ZeLr/fRNeXyJFQREkMTPMTr7B/i3qXWAfoFdRVXTHMfK",
+            "N1h/lVuDoS2aLFlckVJc0tNj1DuBf1avugvahJVVirBsdTxoi2b5iyUJAoGABymo",
+            "+qL/4GNSVzSCfszyUNy/1TtZF70rVAcv6dUXduRUkAQNcF7CVpQC7Z9xvKP+7TsM",
+            "Kc5VSwhMu55vXVWJ9iZMjISB1FYyCPf2oSZ2sBYLMmZtaaEunLNLyz+f5I11e3E1",
+            "YkCs+qaB57Qw9/yZaygjFMdf32rQ/7rZvHwPXnECgYB2InoDsMB1KT+83SL6r3tF",
+            "hY7EePnosi2XWmR4ialkcinN6CsxS5jZ7ZISxPb2fBgYDFQVoNhkq1aZA6au5S4T",
+            "UWTDUQLOBnTurhCFQ/+nElZAlX4nF4M6wKUTlUEQsy7J2cICbSA4tEvx9DEsy2m7",
+            "40bXZzRQtzP8ciNAuypvAg==",
+            "-----END PRIVATE KEY-----",
+        ]
+        private_key_str = "\n".join(pk_lines)
+
+        cred_dict = {
+            "type": "service_account",
+            "project_id": "control-procesos-510021",
+            "private_key_id": "4ba35503d5be0db7e99c9da752bb173efee0c609",
+            "private_key": private_key_str,
+            "client_email": "control-procesos@control-procesos-510021.iam.gserviceaccount.com",
+            "client_id": "110338130362201619109",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com",
+            "universe_domain": "googleapis.com",
+        }
 
     try:
         client = gspread.service_account_from_dict(cred_dict)
