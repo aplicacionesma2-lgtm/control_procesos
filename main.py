@@ -1,6 +1,7 @@
 import datetime
 import io
 import os
+import uuid
 import gspread
 import pandas as pd
 import streamlit as st
@@ -15,77 +16,9 @@ st.set_page_config(
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
-
-# --- CONEXIÓN SEGURA A GOOGLE SHEETS ---
-@st.cache_resource
-def conectar_google_sheets():
-  pk_lines = [
-      "-----BEGIN PRIVATE KEY-----",
-      "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQChFFBYCHDbTJt4",
-      "QIJVeEpflh0wWXFspNZg2Y8v9CukuWGq2O+28MzxM5O+Pv6ls1bThUGnOAD85Fxz",
-      "DBPUm9BqifGRugMNBcE876Af3YuG5s+tDMxF+kWFyQEVVpvZOCK6/WWHOS74F4LN",
-      "WSgcJCWAlMqXlulKGgvvzGLW7QqSW0viJ+DesQd5kNT766qvVO0WyIFzh87N9z70",
-      "lwjzNIiBov/7XgKaagawNjaVm5Ob/2AGzU/82VMfB/DZoJhDEpcJ6qmHLgcKVqZT",
-      "RHLJZshWO4H8Kqxqfmvou6qziydJdBzTrFiqZ359bsUThHpl23mT5OgE4A0xYNY8",
-      "Cxr6Nt+FAgMBAAECggEAHNl4TVgPrHtTQg2dukSd33JRnoH6gligi76TemV7Npi8",
-      "QR7zChslPZL9BF8geRl+dMpiWJp7dM/KrhFM8PCKOrajlTPRTZEJC8qoLWTe00W+",
-      "DtKiuGrLbltyjfmR1q0K7V4qg7ZObwE4/GHaQPYJYHbltRJCjLLPDf8XecKBOPaH",
-      "ulp7EErv7WetyxJC2tqb/cZ2RiSu81ixTMhJkm6H4TnjREPj3FigR3kKjGutbdIS",
-      "4BmGX1MoX7d1ehYA06vt7Xj6uiPuLRxg/AfpZje9NJiH3W+JhrarGqalY2Wwnxe7",
-      "xaA5NJlRQ/pZUkbItVBaOwZc9cmF7hLXq6DKFnCnOQKBgQDTtIXUOBmuHOcC3LTq",
-      "1I6p8voTTofMoT1MSS4OD43hQOFMyiGWs0xpSmqJVmAtckKQmA9P6FdgmV93C8yO",
-      "Fza3m5o8QsfiamCYGTsoLFC6THdqqic2eUId3DCS79ln3M6HvY24oEj/aWgD5lkY",
-      "4b5azGsGce6YO7ZuKne9VWoiDQKBgQDCyCQl0EDxrkjs+FHuhRxyn2jyh10q8T3z",
-      "GGzhugeleazB0Wp7Pa9paVJkGkaKs0KgZUX8cO08t4e+5wkcWgDRE56Ss443qf98",
-      "fpOOqzdLfy4l/QF+QeJ1DJZCONhKgBwjjV2h5EzVqxRq3yRY+Enn8jdVc9p7FKbU",
-      "bqD3DjftWQKBgBWScYicZtF9FHUQNEcxfZAHuD+7Ys8RJwPc+Rppr1VinRKMDjwi",
-      "7QhVkuGHsakv2WSOehD0ZeLr/fRNeXyJFQREkMTPMTr7B/i3qXWAfoFdRVXTHMfK",
-      "N1h/lVuDoS2aLFlckVJc0tNj1DuBf1avugvahJVVirBsdTxoi2b5iyUJAoGABymo",
-      "+qL/4GNSVzSCfszyUNy/1TtZF70rVAcv6dUXduRUkAQNcF7CVpQC7Z9xvKP+7TsM",
-      "Kc5VSwhMu55vXVWJ9iZMjISB1FYyCPf2oSZ2sBYLMmZtaaEunLNLyz+f5I11e3E1",
-      "YkCs+qaB57Qw9/yZaygjFMdf32rQ/7rZvHwPXnECgYB2InoDsMB1KT+83SL6r3tF",
-      "hY7EePnosi2XWmR4ialkcinN6CsxS5jZ7ZISxPb2fBgYDFQVoNhkq1aZA6au5S4T",
-      "UWTDUQLOBnTurhCFQ/+nElZAlX4nF4M6wKUTlUEQsy7J2cICbSA4tEvx9DEsy2m7",
-      "40bXZzRQtzP8ciNAuypvAg==",
-      "-----END PRIVATE KEY-----",
-  ]
-  private_key_str = "\n".join(pk_lines)
-
-  cred_dict = {
-      "type": "service_account",
-      "project_id": "control-procesos-510021",
-      "private_key_id": "4ba35503d5be0db7e99c9da752bb173efee0c609",
-      "private_key": private_key_str,
-      "client_email": (
-          "control-procesos@control-procesos-510021.iam.gserviceaccount.com"
-      ),
-      "client_id": "110338130362201619109",
-      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-      "token_uri": "https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url": (
-          "https://www.googleapis.com/oauth2/v1/certs"
-      ),
-      "client_x509_cert_url": (
-          "https://www.googleapis.com/robot/v1/metadata/x509/control-procesos%40control-procesos-510021.iam.gserviceaccount.com"
-      ),
-      "universe_domain": "googleapis.com",
-  }
-
-  client = gspread.service_account_from_dict(cred_dict)
-  sheet = client.open_by_url(SPREADSHEET_URL).sheet1
-  return sheet
-
-
-try:
-  ws = conectar_google_sheets()
-  data = ws.get_all_records()
-  df_actual = pd.DataFrame(data)
-except Exception as e:
-  st.error(f"❌ Error al conectar con Google Sheets: {e}")
-  df_actual = pd.DataFrame()
-
-# --- CABECERAS ESTÁNDAR UNIFICADAS ---
-headers = [
+# --- CABECERAS ESTÁNDAR UNIFICADAS (Con columna ID_REGISTRO para sincronización precisa) ---
+HEADERS = [
+    "ID_REGISTRO",
     "PRODUCTO",
     "LÍNEA DE PROCESO",
     "CONDICIONES DEL AREA DE TRABAJO",
@@ -103,8 +36,35 @@ headers = [
     "OBSERVACIÓN",
 ]
 
-if df_actual.empty:
-  df_actual = pd.DataFrame(columns=headers)
+# --- CONEXIÓN SEGURA A GOOGLE SHEETS VIA ST.SECRETS ---
+@st.cache_resource
+def conectar_google_sheets():
+    """Conecta a Google Sheets utilizando Streamlit Secrets."""
+    try:
+        # Lee las credenciales de forma segura desde st.secrets["gcp_service_account"]
+        cred_dict = dict(st.secrets["gcp_service_account"])
+        client = gspread.service_account_from_dict(cred_dict)
+        sheet = client.open_by_url(SPREADSHEET_URL).sheet1
+        return sheet
+    except Exception as e:
+        st.error(
+            "❌ Error al conectar con Google Sheets. Verifique la configuración de secrets.toml: "
+            f"{e}"
+        )
+        return None
+
+
+ws = conectar_google_sheets()
+
+if ws:
+    try:
+        data = ws.get_all_records()
+        df_actual = pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"❌ Error al leer la hoja de cálculo: {e}")
+        df_actual = pd.DataFrame(columns=HEADERS)
+else:
+    df_actual = pd.DataFrame(columns=HEADERS)
 
 CATALOGO_DEFAULT = {
     "MUFFINS": [
@@ -154,55 +114,47 @@ EQUIPOS_DEFAULT = [
 
 @st.cache_data(ttl=3600)
 def cargar_catalogos():
-  mapa_linea_productos = CATALOGO_DEFAULT.copy()
-  equipos = EQUIPOS_DEFAULT
-  if os.path.exists(FILE_PATH):
-    try:
-      xls = pd.ExcelFile(FILE_PATH)
-      for sheet in xls.sheet_names:
-        df = pd.read_excel(FILE_PATH, sheet_name=sheet)
-        for idx, row in df.iterrows():
-          row_vals = [str(v).strip() for v in row.values if pd.notna(v)]
-          if "PRODUCTO" in row_vals and "LÍNEA DE PROCESO" in row_vals:
-            header_idx = idx
-            df_data = df.iloc[header_idx + 1 :].copy()
-            df_data.columns = [str(c).strip() for c in df.iloc[header_idx].values]
-            temp_map = {}
-            for _, r in df_data.iterrows():
-              p = (
-                  str(r["PRODUCTO"]).strip()
-                  if pd.notna(r.get("PRODUCTO"))
-                  else None
-              )
-              l = (
-                  str(r["LÍNEA DE PROCESO"]).strip()
-                  if pd.notna(r.get("LÍNEA DE PROCESO"))
-                  else None
-              )
-              if p and l:
-                if l not in temp_map:
-                  temp_map[l] = []
-                if p not in temp_map[l]:
-                  temp_map[l].append(p)
-            if temp_map:
-              if "OTRO" not in temp_map:
-                temp_map["OTRO"] = []
-              mapa_linea_productos = temp_map
-            if "EQUIPO UTILIZADO" in df_data.columns:
-              eqs = (
-                  df_data["EQUIPO UTILIZADO"]
-                  .dropna()
-                  .astype(str)
-                  .str.strip()
-                  .unique()
-                  .tolist()
-              )
-              if eqs:
-                equipos = list(dict.fromkeys(eqs + ["OTRO"]))
-            break
-    except Exception:
-      pass
-  return mapa_linea_productos, equipos
+    mapa_linea_productos = CATALOGO_DEFAULT.copy()
+    equipos = EQUIPOS_DEFAULT
+    if os.path.exists(FILE_PATH):
+        try:
+            xls = pd.ExcelFile(FILE_PATH)
+            for sheet in xls.sheet_names:
+                df = pd.read_excel(FILE_PATH, sheet_name=sheet)
+                for idx, row in df.iterrows():
+                    row_vals = [str(v).strip() for v in row.values if pd.notna(v)]
+                    if "PRODUCTO" in row_vals and "LÍNEA DE PROCESO" in row_vals:
+                        header_idx = idx
+                        df_data = df.iloc[header_idx + 1 :].copy()
+                        df_data.columns = [str(c).strip() for c in df.iloc[header_idx].values]
+                        temp_map = {}
+                        for _, r in df_data.iterrows():
+                            p = str(r["PRODUCTO"]).strip() if pd.notna(r.get("PRODUCTO")) else None
+                            l = str(r["LÍNEA DE PROCESO"]).strip() if pd.notna(r.get("LÍNEA DE PROCESO")) else None
+                            if p and l:
+                                if l not in temp_map:
+                                    temp_map[l] = []
+                                if p not in temp_map[l]:
+                                    temp_map[l].append(p)
+                        if temp_map:
+                            if "OTRO" not in temp_map:
+                                temp_map["OTRO"] = []
+                            mapa_linea_productos = temp_map
+                        if "EQUIPO UTILIZADO" in df_data.columns:
+                            eqs = (
+                                df_data["EQUIPO UTILIZADO"]
+                                .dropna()
+                                .astype(str)
+                                .str.strip()
+                                .unique()
+                                .tolist()
+                            )
+                            if eqs:
+                                equipos = list(dict.fromkeys(eqs + ["OTRO"]))
+                        break
+        except Exception:
+            pass
+    return mapa_linea_productos, equipos
 
 
 mapa_linea_productos, lista_equipos = cargar_catalogos()
@@ -210,328 +162,274 @@ lista_lineas = list(mapa_linea_productos.keys())
 
 # --- NAVEGACIÓN PRINCIPAL ---
 st.title("📋 FORMATO CONTROL DE PROCESOS LÍNEAS")
-tab1, tab2 = st.tabs(
-    ["📝 Nuevo Registro", "✏️ Gestionar / Editar / Eliminar Historial"]
-)
+tab1, tab2 = st.tabs(["📝 Nuevo Registro", "✏️ Gestionar / Editar / Eliminar Historial"])
 
 # ==========================================
 # PESTAÑA 1: NUEVO REGISTRO
 # ==========================================
 with tab1:
-  st.subheader("1. Selección de Línea, Producto y Equipo")
-  col_a, col_b, col_c = st.columns(3)
+    st.subheader("1. Selección de Línea, Producto y Equipo")
+    col_a, col_b, col_c = st.columns(3)
 
-  with col_a:
-    linea_sel = st.selectbox(
-        "LÍNEA DE PROCESO", options=lista_lineas, key="select_linea_filtro"
-    )
-    if linea_sel == "OTRO":
-      linea_text = st.text_input(
-          "Especifique Línea de Proceso", placeholder="Nombre de línea"
-      )
-      linea_final = linea_text
-      productos_disponibles = []
-    else:
-      linea_final = linea_sel
-      productos_disponibles = mapa_linea_productos.get(linea_sel, [])
+    with col_a:
+        linea_sel = st.selectbox("LÍNEA DE PROCESO", options=lista_lineas, key="select_linea_filtro")
+        if linea_sel == "OTRO":
+            linea_text = st.text_input("Especifique Línea de Proceso", placeholder="Nombre de línea")
+            linea_final = linea_text
+            productos_disponibles = []
+        else:
+            linea_final = linea_sel
+            productos_disponibles = mapa_linea_productos.get(linea_sel, [])
 
-  with col_b:
-    if productos_disponibles:
-      opciones_producto = productos_disponibles + ["OTRO"]
-      prod_sel = st.selectbox(
-          "PRODUCTO", options=opciones_producto, key="select_producto_dinamico"
-      )
-      if prod_sel == "OTRO":
-        prod_text = st.text_input(
-            "Especifique Producto", placeholder="Nombre del producto"
-        )
-        producto_final = prod_text
-      else:
-        producto_final = prod_sel
-    else:
-      producto_final = st.text_input(
-          "PRODUCTO", placeholder="Escriba el nombre del producto"
-      )
+    with col_b:
+        if productos_disponibles:
+            opciones_producto = productos_disponibles + ["OTRO"]
+            prod_sel = st.selectbox("PRODUCTO", options=opciones_producto, key="select_producto_dinamico")
+            if prod_sel == "OTRO":
+                prod_text = st.text_input("Especifique Producto", placeholder="Nombre del producto")
+                producto_final = prod_text
+            else:
+                producto_final = prod_sel
+        else:
+            producto_final = st.text_input("PRODUCTO", placeholder="Escriba el nombre del producto")
 
-  with col_c:
-    equipo_sel = st.selectbox("EQUIPO UTILIZADO", options=lista_equipos)
-    if equipo_sel == "OTRO":
-      equipo_text = st.text_input(
-          "Especifique Equipo", placeholder="Nombre del equipo"
-      )
-      equipo_final = equipo_text
-    else:
-      equipo_final = equipo_sel
+    with col_c:
+        equipo_sel = st.selectbox("EQUIPO UTILIZADO", options=lista_equipos)
+        if equipo_sel == "OTRO":
+            equipo_text = st.text_input("Especifique Equipo", placeholder="Nombre del equipo")
+            equipo_final = equipo_text
+        else:
+            equipo_final = equipo_sel
 
-  with st.form("form_control_proceso", clear_on_submit=True):
-    st.subheader("2. Información General del Proceso")
-    col1, col2, col3, col4 = st.columns(4)
+    with st.form("form_control_proceso", clear_on_submit=True):
+        st.subheader("2. Información General del Proceso")
+        col1, col2, col3, col4 = st.columns(4)
 
-    with col1:
-      fecha_p = st.date_input(
-          "F.P (Fecha de Producción)", value=datetime.date.today()
-      )
-    with col2:
-      lote = st.text_input("LOTE", placeholder="Ej. L-20260901", key="input_lote")
-    with col3:
-      batch = st.text_input("BATCH", placeholder="Ej. B-01", key="input_batch")
-    with col4:
-      responsable = st.text_input(
-          "RESPONSABLE",
-          placeholder="Ingrese el nombre del responsable",
-          key="input_responsable",
-      )
+        with col1:
+            fecha_p = st.date_input("F.P (Fecha de Producción)", value=datetime.date.today())
+        with col2:
+            lote = st.text_input("LOTE", placeholder="Ej. L-20260901", key="input_lote")
+        with col3:
+            batch = st.text_input("BATCH", placeholder="Ej. B-01", key="input_batch")
+        with col4:
+            responsable = st.text_input(
+                "RESPONSABLE",
+                placeholder="Ingrese el nombre del responsable",
+                key="input_responsable",
+            )
 
-    st.subheader("3. Condiciones del Entorno e Insumos")
-    col8, col9, col10, col11 = st.columns(4)
-    with col8:
-      cond_area = st.radio(
-          "CONDICIONES AREA TRABAJO", ["CONFORME", "NO CONFORME"], horizontal=True
-      )
-    with col9:
-      cond_equipo = st.radio(
-          "CONDICIONES EQUIPO", ["CONFORME", "NO CONFORME"], horizontal=True
-      )
-    with col10:
-      cond_insumos = st.radio(
-          "CONDICIONES INSUMOS", ["CONFORME", "NO CONFORME"], horizontal=True
-      )
-    with col11:
-      caract_producto = st.radio(
-          "CARACTERISTICAS PRODUCTO",
-          ["CONFORME", "NO CONFORME"],
-          horizontal=True,
-      )
+        st.subheader("3. Condiciones del Entorno e Insumos")
+        col8, col9, col10, col11 = st.columns(4)
+        with col8:
+            cond_area = st.radio("CONDICIONES AREA TRABAJO", ["CONFORME", "NO CONFORME"], horizontal=True)
+        with col9:
+            cond_equipo = st.radio("CONDICIONES EQUIPO", ["CONFORME", "NO CONFORME"], horizontal=True)
+        with col10:
+            cond_insumos = st.radio("CONDICIONES INSUMOS", ["CONFORME", "NO CONFORME"], horizontal=True)
+        with col11:
+            caract_producto = st.radio("CARACTERISTICAS PRODUCTO", ["CONFORME", "NO CONFORME"], horizontal=True)
 
-    st.subheader("4. Horarios y Tiempo de Proceso")
-    col12, col13, col14 = st.columns(3)
-    with col12:
-      hora_inicio = st.time_input("HORA INICIO", value=datetime.time(8, 0))
-    with col13:
-      hora_termino = st.time_input("HORA TÉRMINO", value=datetime.time(8, 15))
+        st.subheader("4. Horarios y Tiempo de Proceso")
+        col12, col13, col14 = st.columns(3)
+        with col12:
+            hora_inicio = st.time_input("HORA INICIO", value=datetime.time(8, 0))
+        with col13:
+            hora_termino = st.time_input("HORA TÉRMINO", value=datetime.time(8, 15))
 
-    dt_inicio = datetime.datetime.combine(datetime.date.today(), hora_inicio)
-    dt_termino = datetime.datetime.combine(datetime.date.today(), hora_termino)
-    if dt_termino < dt_inicio:
-      dt_termino += datetime.timedelta(days=1)
-    minutos_totales = int((dt_termino - dt_inicio).total_seconds() / 60)
-    tiempo_calculado = f"{minutos_totales} min"
+        dt_inicio = datetime.datetime.combine(datetime.date.today(), hora_inicio)
+        dt_termino = datetime.datetime.combine(datetime.date.today(), hora_termino)
+        if dt_termino < dt_inicio:
+            dt_termino += datetime.timedelta(days=1)
+        minutos_totales = int((dt_termino - dt_inicio).total_seconds() / 60)
+        tiempo_calculado = f"{minutos_totales} min"
 
-    with col14:
-      st.text_input("TIEMPO CALCULADO", value=tiempo_calculado, disabled=True)
+        with col14:
+            st.text_input("TIEMPO CALCULADO", value=tiempo_calculado, disabled=True)
 
-    st.subheader("5. Observaciones Finales")
-    col15, col16 = st.columns([1, 2])
-    with col15:
-      estado_obs = st.radio(
-          "OBSERVACIÓN", options=["CONFORME", "NO CONFORME", "OTRO (Texto Libre)"]
-      )
-    with col16:
-      if estado_obs == "OTRO (Texto Libre)":
-        observacion_final = st.text_area(
-            "Detalle", placeholder="Escriba observación..."
-        )
-      else:
-        obs_adic = st.text_input(
-            "Comentario Adicional (Opcional)", placeholder="Detalles..."
-        )
-        observacion_final = (
-            f"{estado_obs} - {obs_adic}".strip(" -") if obs_adic else estado_obs
-        )
+        st.subheader("5. Observaciones Finales")
+        col15, col16 = st.columns([1, 2])
+        with col15:
+            estado_obs = st.radio("OBSERVACIÓN", options=["CONFORME", "NO CONFORME", "OTRO (Texto Libre)"])
+        with col16:
+            if estado_obs == "OTRO (Texto Libre)":
+                observacion_final = st.text_area("Detalle", placeholder="Escriba observación...")
+            else:
+                obs_adic = st.text_input("Comentario Adicional (Opcional)", placeholder="Detalles...")
+                observacion_final = f"{estado_obs} - {obs_adic}".strip(" -") if obs_adic else estado_obs
 
-    btn_guardar = st.form_submit_button(
-        "💾 Guardar Registro en Google Sheets", use_container_width=True
-    )
+        btn_guardar = st.form_submit_button("💾 Guardar Registro en Google Sheets", use_container_width=True)
 
-  if btn_guardar:
-    fila_nueva = [
-        producto_final,
-        linea_final,
-        cond_area,
-        fecha_p.strftime("%Y-%m-%d"),
-        lote,
-        batch,
-        equipo_final,
-        hora_inicio.strftime("%H:%M"),
-        cond_equipo,
-        cond_insumos,
-        caract_producto,
-        hora_termino.strftime("%H:%M"),
-        tiempo_calculado,
-        responsable,
-        observacion_final,
-    ]
-    try:
-      datos_existentes = ws.get_all_values()
-      if not datos_existentes:
-        ws.append_row(headers)
-      else:
-        ws.update([headers], range_name="A1")
-      ws.append_row(fila_nueva)
-      st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
-      st.rerun()
-    except Exception as e:
-      st.error(f"❌ Error al guardar: {e}")
+    if btn_guardar:
+        if not ws:
+            st.error("❌ No hay conexión activa con Google Sheets.")
+        else:
+            # Identificador único para evitar cruce de filas
+            registro_id = str(uuid.uuid4())[:8]
+
+            fila_nueva = [
+                registro_id,
+                producto_final,
+                linea_final,
+                cond_area,
+                fecha_p.strftime("%Y-%m-%d"),
+                lote,
+                batch,
+                equipo_final,
+                hora_inicio.strftime("%H:%M"),
+                cond_equipo,
+                cond_insumos,
+                caract_producto,
+                hora_termino.strftime("%H:%M"),
+                tiempo_calculado,
+                responsable,
+                observacion_final,
+            ]
+            try:
+                datos_existentes = ws.get_all_values()
+                if not datos_existentes:
+                    ws.append_row(HEADERS)
+                else:
+                    ws.update([HEADERS], range_name="A1")
+                ws.append_row(fila_nueva)
+                st.success("✅ ¡Registro guardado exitosamente en Google Sheets!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error al guardar: {e}")
 
 # ==========================================
 # PESTAÑA 2: GESTIONAR, FILTRAR, EDITAR Y ELIMINAR
 # ==========================================
 with tab2:
-  st.subheader("🔍 Filtrar, Editar y Eliminar Registros por Fecha")
+    st.subheader("🔍 Filtrar, Editar y Eliminar Registros por Fecha")
 
-  try:
-    # Obtenemos todos los registros de la hoja incluyendo su número de fila real (fila 1 = cabecera)
-    rows_all = ws.get_all_values()
-    if len(rows_all) > 1:
-      head = rows_all[0]
-      body = rows_all[1:]
-      df_cloud = pd.DataFrame(body, columns=head)
-
-      # Selector de fecha para filtrar
-      if "F.P" in df_cloud.columns:
-        fechas_disponibles = sorted(df_cloud["F.P"].dropna().unique().tolist())
-        if fechas_disponibles:
-          fecha_seleccionada = st.selectbox(
-              "📅 Seleccione la Fecha de Producción (F.P) a gestionar:",
-              options=fechas_disponibles,
-          )
-
-          # Filtrar registros que coincidan con la fecha
-          df_filtrado = df_cloud[df_cloud["F.P"] == fecha_seleccionada]
-
-          st.markdown(
-              f"### Registros encontrados para la fecha: `{fecha_seleccionada}`"
-          )
-
-          for local_idx, row in df_filtrado.iterrows():
-            # El índice real en Google Sheets es local_idx + 2 (porque rows_all incluye cabecera en índice 0)
-            sheet_row_num = local_idx + 2
-
-            with st.expander(
-                f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')}"
-                f" | Resp: {row.get('RESPONSABLE')}"
-            ):
-              with st.form(key=f"form_edit_{sheet_row_num}"):
-                st.write(f"Editando registro (Fila en Google Sheets)")
-
-                col_e1, col_e2, col_e3 = st.columns(3)
-                with col_e1:
-                  nuevo_prod = st.text_input(
-                      "PRODUCTO", value=row.get("PRODUCTO", "")
-                  )
-                  nueva_linea = st.text_input(
-                      "LÍNEA DE PROCESO", value=row.get("LÍNEA DE PROCESO", "")
-                  )
-                  nuevo_lote = st.text_input("LOTE", value=row.get("LOTE", ""))
-                with col_e2:
-                  nuevo_batch = st.text_input(
-                      "BATCH", value=row.get("BATCH", "")
-                  )
-                  nuevo_resp = st.text_input(
-                      "RESPONSABLE", value=row.get("RESPONSABLE", "")
-                  )
-                  nuevo_equipo = st.text_input(
-                      "EQUIPO UTILIZADO", value=row.get("EQUIPO UTILIZADO", "")
-                  )
-                with col_e3:
-                  nuevo_inicio = st.text_input(
-                      "HORA INICIO", value=row.get("HORA INICIO", "")
-                  )
-                  nuevo_termino = st.text_input(
-                      "HORA TÉRMINO", value=row.get("HORA TÉRMINO", "")
-                  )
-                  nueva_obs = st.text_area(
-                      "OBSERVACIÓN", value=row.get("OBSERVACIÓN", "")
-                  )
-
-                btn_actualizar = st.form_submit_button(
-                    "💾 Guardar Cambios de este Registro"
-                )
-                if btn_actualizar:
-                  try:
-                    # Mantenemos los demás campos intactos y actualizamos los modificados
-                    fila_actualizada = [
-                        nuevo_prod,
-                        nueva_linea,
-                        row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME"),
-                        row.get("F.P", fecha_seleccionada),
-                        nuevo_lote,
-                        nuevo_batch,
-                        nuevo_equipo,
-                        nuevo_inicio,
-                        row.get("CONDICIONES DEL EQUIPO", "CONFORME"),
-                        row.get("CONDICIONES DE LOS INS.UMOS", "CONFORME"),
-                        row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME"),
-                        nuevo_termino,
-                        row.get("TIEMPO", "15 min"),
-                        nuevo_resp,
-                        nueva_obs,
-                    ]
-                    # Actualizamos la fila exacta en Google Sheets
-                    ws.update(
-                        range_name=f"A{sheet_row_num}:O{sheet_row_num}",
-                        values=[fila_actualizada],
-                    )
-                    st.success(
-                        "✅ ¡Registro actualizado correctamente en Google"
-                        " Sheets!"
-                    )
-                    st.rerun()
-                  except Exception as err:
-                    st.error(f"Error al actualizar: {err}")
-
-              # Botón independiente para eliminar esta fila específica
-              if st.button(
-                  f"🗑️ Eliminar este registro permanentemente",
-                  key=f"del_{sheet_row_num}",
-              ):
-                try:
-                  ws.delete_rows(sheet_row_num)
-                  st.success("✅ ¡Registro eliminado de Google Sheets!")
-                  st.rerun()
-                except Exception as err:
-                  st.error(f"Error al eliminar: {err}")
-        else:
-          st.info("No hay fechas registradas en la columna F.P.")
-      else:
-        st.warning("No se encontró la columna 'F.P' en la hoja de cálculo.")
+    if not ws:
+        st.error("❌ Conexión con Google Sheets no disponible.")
     else:
-      st.info("Aún no hay registros guardados en Google Sheets.")
-  except Exception as e:
-    st.error(f"Error al leer registros: {e}")
+        try:
+            rows_all = ws.get_all_values()
+            if len(rows_all) > 1:
+                head = rows_all[0]
+                body = rows_all[1:]
+                df_cloud = pd.DataFrame(body, columns=head)
 
-  st.markdown("---")
-  st.subheader("📥 Exportar Historial Completo")
-  try:
-    registros_totales = ws.get_all_records()
-    if registros_totales:
-      df_registros = pd.DataFrame(registros_totales)
-      col_down1, col_down2 = st.columns(2)
+                if "F.P" in df_cloud.columns:
+                    fechas_disponibles = sorted(df_cloud["F.P"].dropna().unique().tolist())
+                    if fechas_disponibles:
+                        fecha_seleccionada = st.selectbox(
+                            "📅 Seleccione la Fecha de Producción (F.P) a gestionar:",
+                            options=fechas_disponibles,
+                        )
 
-      buffer_excel = io.BytesIO()
-      with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
-        df_registros.to_excel(
-            writer, index=False, sheet_name="Control_Procesos"
-        )
-      data_excel = buffer_excel.getvalue()
+                        df_filtrado = df_cloud[df_cloud["F.P"] == fecha_seleccionada]
+                        st.markdown(f"### Registros encontrados para la fecha: `{fecha_seleccionada}`")
 
-      with col_down1:
-        st.download_button(
-            label="📊 Descargar en Excel (.xlsx)",
-            data=data_excel,
-            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
+                        for local_idx, row in df_filtrado.iterrows():
+                            # Fila real calculada dinámicamente
+                            sheet_row_num = local_idx + 2
+                            reg_id = row.get("ID_REGISTRO", f"ROW_{sheet_row_num}")
 
-      data_csv = df_registros.to_csv(index=False).encode("utf-8")
-      with col_down2:
-        st.download_button(
-            label="📄 Descargar en CSV (.csv)",
-            data=data_csv,
-            file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-  except Exception:
-    pass
+                            with st.expander(
+                                f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | Resp: {row.get('RESPONSABLE')}"
+                            ):
+                                with st.form(key=f"form_edit_{sheet_row_num}_{reg_id}"):
+                                    st.write(f"Editando registro (Fila en Google Sheets: {sheet_row_num})")
+
+                                    col_e1, col_e2, col_e3 = st.columns(3)
+                                    with col_e1:
+                                        nuevo_prod = st.text_input("PRODUCTO", value=row.get("PRODUCTO", ""))
+                                        nueva_linea = st.text_input("LÍNEA DE PROCESO", value=row.get("LÍNEA DE PROCESO", ""))
+                                        nuevo_lote = st.text_input("LOTE", value=row.get("LOTE", ""))
+                                    with col_e2:
+                                        nuevo_batch = st.text_input("BATCH", value=row.get("BATCH", ""))
+                                        nuevo_resp = st.text_input("RESPONSABLE", value=row.get("RESPONSABLE", ""))
+                                        nuevo_equipo = st.text_input("EQUIPO UTILIZADO", value=row.get("EQUIPO UTILIZADO", ""))
+                                    with col_e3:
+                                        nuevo_inicio = st.text_input("HORA INICIO", value=row.get("HORA INICIO", ""))
+                                        nuevo_termino = st.text_input("HORA TÉRMINO", value=row.get("HORA TÉRMINO", ""))
+                                        nueva_obs = st.text_area("OBSERVACIÓN", value=row.get("OBSERVACIÓN", ""))
+
+                                    btn_actualizar = st.form_submit_button("💾 Guardar Cambios de este Registro")
+
+                                    if btn_actualizar:
+                                        try:
+                                            # CORRECCIÓN: "CONDICIONES DE LOS INSUMOS" corregido
+                                            fila_actualizada = [
+                                                reg_id,
+                                                nuevo_prod,
+                                                nueva_linea,
+                                                row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME"),
+                                                row.get("F.P", fecha_seleccionada),
+                                                nuevo_lote,
+                                                nuevo_batch,
+                                                nuevo_equipo,
+                                                nuevo_inicio,
+                                                row.get("CONDICIONES DEL EQUIPO", "CONFORME"),
+                                                row.get("CONDICIONES DE LOS INSUMOS", "CONFORME"),
+                                                row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME"),
+                                                nuevo_termino,
+                                                row.get("TIEMPO", "15 min"),
+                                                nuevo_resp,
+                                                nueva_obs,
+                                            ]
+                                            ws.update(
+                                                range_name=f"A{sheet_row_num}:P{sheet_row_num}",
+                                                values=[fila_actualizada],
+                                            )
+                                            st.success("✅ ¡Registro actualizado correctamente en Google Sheets!")
+                                            st.rerun()
+                                        except Exception as err:
+                                            st.error(f"Error al actualizar: {err}")
+
+                                if st.button(
+                                    "🗑️ Eliminar este registro permanentemente",
+                                    key=f"del_{sheet_row_num}_{reg_id}",
+                                ):
+                                    try:
+                                        ws.delete_rows(sheet_row_num)
+                                        st.success("✅ ¡Registro eliminado de Google Sheets!")
+                                        st.rerun()
+                                    except Exception as err:
+                                        st.error(f"Error al eliminar: {err}")
+                    else:
+                        st.info("No hay fechas registradas en la columna F.P.")
+                else:
+                    st.warning("No se encontró la columna 'F.P' en la hoja de cálculo.")
+            else:
+                st.info("Aún no hay registros guardados en Google Sheets.")
+        except Exception as e:
+            st.error(f"Error al leer registros: {e}")
+
+    st.markdown("---")
+    st.subheader("📥 Exportar Historial Completo")
+    if ws:
+        try:
+            registros_totales = ws.get_all_records()
+            if registros_totales:
+                df_registros = pd.DataFrame(registros_totales)
+                col_down1, col_down2 = st.columns(2)
+
+                buffer_excel = io.BytesIO()
+                with pd.ExcelWriter(buffer_excel, engine="openpyxl") as writer:
+                    df_registros.to_excel(writer, index=False, sheet_name="Control_Procesos")
+                data_excel = buffer_excel.getvalue()
+
+                with col_down1:
+                    st.download_button(
+                        label="📊 Descargar en Excel (.xlsx)",
+                        data=data_excel,
+                        file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+
+                data_csv = df_registros.to_csv(index=False).encode("utf-8")
+                with col_down2:
+                    st.download_button(
+                        label="📄 Descargar en CSV (.csv)",
+                        data=data_csv,
+                        file_name=f"CONTROL_PROCESOS_{datetime.date.today()}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+        except Exception:
+            pass
