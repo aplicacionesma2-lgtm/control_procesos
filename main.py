@@ -22,6 +22,13 @@ OPCIONES_CONFORMIDAD = [
     "NO CONFORME",
 ]
 
+# OPCIONES DE VISTO BUENO / APROBACIÓN
+OPCIONES_VB = [
+    "PENDIENTE",
+    "APROBADO",
+    "RECHAZADO",
+]
+
 # --- CABECERAS ESTÁNDAR UNIFICADAS ---
 HEADERS = [
     "ID_REGISTRO",
@@ -40,6 +47,8 @@ HEADERS = [
     "TIEMPO",
     "RESPONSABLE",
     "OBSERVACIÓN",
+    "VB PRODUCCIÓN",
+    "VB CALIDAD",
 ]
 
 # --- CONEXIÓN SEGURA Y ROBUSTA A GOOGLE SHEETS ---
@@ -305,7 +314,14 @@ with tab1:
         with col14:
             st.text_input("TIEMPO CALCULADO", value=tiempo_calculado, disabled=True)
 
-        st.subheader("5. Observaciones Finales")
+        st.subheader("5. Aprobación y Visto Bueno (V.B)")
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            vb_produccion = st.selectbox("V.B PRODUCCIÓN", OPCIONES_VB, index=0)
+        with col_v2:
+            vb_calidad = st.selectbox("V.B CALIDAD", OPCIONES_VB, index=0)
+
+        st.subheader("6. Observaciones Finales")
         col15, col16 = st.columns([1, 2])
         with col15:
             estado_obs = st.radio("OBSERVACIÓN", options=["CONFORME", "NO CONFORME", "OTRO (Texto Libre)"])
@@ -341,6 +357,8 @@ with tab1:
                 tiempo_calculado,
                 responsable,
                 observacion_final,
+                vb_produccion,
+                vb_calidad,
             ]
             try:
                 datos_existentes = ws.get_all_values()
@@ -384,8 +402,12 @@ with tab2:
                         for local_idx, row in df_filtrado.iterrows():
                             sheet_row_num = local_idx + 2
 
+                            v_prod_status = row.get('VB PRODUCCIÓN', 'PENDIENTE')
+                            v_cal_status = row.get('VB CALIDAD', 'PENDIENTE')
+
                             with st.expander(
-                                f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | Resp: {row.get('RESPONSABLE')}"
+                                f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | "
+                                f"VB Prod: {v_prod_status} | VB Calidad: {v_cal_status}"
                             ):
                                 with st.form(key=f"form_edit_{sheet_row_num}_{row.get('ID_REGISTRO', local_idx)}"):
                                     st.write(f"**Editando registro completo (Fila en Google Sheets: {sheet_row_num})**")
@@ -427,7 +449,19 @@ with tab2:
                                     with col_c4:
                                         nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=OPCIONES_CONFORMIDAD, index=idx_car)
 
-                                    st.markdown("##### 3. Horarios y Observaciones")
+                                    st.markdown("##### 3. Aprobación y Visto Bueno (V.B)")
+                                    col_vb1, col_vb2 = st.columns(2)
+                                    val_vbp = str(row.get("VB PRODUCCIÓN", "PENDIENTE")).strip().upper()
+                                    idx_vbp = OPCIONES_VB.index(val_vbp) if val_vbp in OPCIONES_VB else 0
+                                    with col_vb1:
+                                        nuevo_vb_prod = st.selectbox("V.B PRODUCCIÓN", options=OPCIONES_VB, index=idx_vbp)
+
+                                    val_vbq = str(row.get("VB CALIDAD", "PENDIENTE")).strip().upper()
+                                    idx_vbq = OPCIONES_VB.index(val_vbq) if val_vbq in OPCIONES_VB else 0
+                                    with col_vb2:
+                                        nuevo_vb_cal = st.selectbox("V.B CALIDAD", options=OPCIONES_VB, index=idx_vbq)
+
+                                    st.markdown("##### 4. Horarios y Observaciones")
                                     col_h1, col_h2, col_h3 = st.columns(3)
                                     with col_h1:
                                         nuevo_inicio = st.text_input("HORA INICIO", value=str(row.get("HORA INICIO", "")))
@@ -458,9 +492,11 @@ with tab2:
                                                 nuevo_tiempo,
                                                 nuevo_resp,
                                                 nueva_obs,
+                                                nuevo_vb_prod,
+                                                nuevo_vb_cal,
                                             ]
                                             ws.update(
-                                                range_name=f"A{sheet_row_num}:P{sheet_row_num}",
+                                                range_name=f"A{sheet_row_num}:R{sheet_row_num}",
                                                 values=[fila_actualizada],
                                             )
                                             st.success("✅ ¡Registro actualizado correctamente en Google Sheets!")
