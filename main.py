@@ -36,7 +36,7 @@ HEADERS = [
     "OBSERVACIÓN",
 ]
 
-# --- CREDENCIAL DE CONEXIÓN CON FORMATO PEM VÁLIDO ---
+# --- CONEXIÓN SEGURA Y ROBUSTA A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
     cred_dict = None
@@ -50,7 +50,7 @@ def conectar_google_sheets():
     except Exception:
         cred_dict = None
 
-    # 2. Fallback: Usar la estructura privada en formato multilínea válido
+    # 2. Fallback: Usar la estructura privada en formato multilínea PEM
     if not cred_dict:
         pk_lines = [
             "-----BEGIN PRIVATE KEY-----",
@@ -349,7 +349,7 @@ with tab1:
                 st.error(f"❌ Error al guardar: {e}")
 
 # ==========================================
-# PESTAÑA 2: GESTIONAR, FILTRAR, EDITAR Y ELIMINAR
+# PESTAÑA 2: GESTIONAR, FILTRAR, EDITAR Y ELIMINAR COMPLETO
 # ==========================================
 with tab2:
     st.subheader("🔍 Filtrar, Editar y Eliminar Registros por Fecha")
@@ -382,23 +382,57 @@ with tab2:
                                 f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | Resp: {row.get('RESPONSABLE')}"
                             ):
                                 with st.form(key=f"form_edit_{sheet_row_num}_{row.get('ID_REGISTRO', local_idx)}"):
-                                    st.write(f"Editando registro (Fila en Google Sheets: {sheet_row_num})")
+                                    st.write(f"**Editando registro completo (Fila en Google Sheets: {sheet_row_num})**")
 
-                                    col_e1, col_e2, col_e3 = st.columns(3)
+                                    st.markdown("##### 1. Datos Principales")
+                                    col_e1, col_e2, col_e3, col_e4 = st.columns(4)
                                     with col_e1:
-                                        nuevo_prod = st.text_input("PRODUCTO", value=row.get("PRODUCTO", ""))
-                                        nueva_linea = st.text_input("LÍNEA DE PROCESO", value=row.get("LÍNEA DE PROCESO", ""))
-                                        nuevo_lote = st.text_input("LOTE", value=row.get("LOTE", ""))
+                                        nuevo_prod = st.text_input("PRODUCTO", value=str(row.get("PRODUCTO", "")))
+                                        nueva_linea = st.text_input("LÍNEA DE PROCESO", value=str(row.get("LÍNEA DE PROCESO", "")))
                                     with col_e2:
-                                        nuevo_batch = st.text_input("BATCH", value=row.get("BATCH", ""))
-                                        nuevo_resp = st.text_input("RESPONSABLE", value=row.get("RESPONSABLE", ""))
-                                        nuevo_equipo = st.text_input("EQUIPO UTILIZADO", value=row.get("EQUIPO UTILIZADO", ""))
+                                        nueva_fp = st.text_input("F.P (Fecha)", value=str(row.get("F.P", fecha_seleccionada)))
+                                        nuevo_lote = st.text_input("LOTE", value=str(row.get("LOTE", "")))
                                     with col_e3:
-                                        nuevo_inicio = st.text_input("HORA INICIO", value=row.get("HORA INICIO", ""))
-                                        nuevo_termino = st.text_input("HORA TÉRMINO", value=row.get("HORA TÉRMINO", ""))
-                                        nueva_obs = st.text_area("OBSERVACIÓN", value=row.get("OBSERVACIÓN", ""))
+                                        nuevo_batch = st.text_input("BATCH", value=str(row.get("BATCH", "")))
+                                        nuevo_resp = st.text_input("RESPONSABLE", value=str(row.get("RESPONSABLE", "")))
+                                    with col_e4:
+                                        nuevo_equipo = st.text_input("EQUIPO UTILIZADO", value=str(row.get("EQUIPO UTILIZADO", "")))
 
-                                    btn_actualizar = st.form_submit_button("💾 Guardar Cambios de este Registro")
+                                    st.markdown("##### 2. Condiciones de Calidad y Entorno")
+                                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                                    opts_conformidad = ["CONFORME", "NO CONFORME"]
+                                    
+                                    val_area = str(row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME")).strip()
+                                    idx_area = 0 if val_area == "CONFORME" else 1
+                                    with col_c1:
+                                        nueva_cond_area = st.selectbox("ÁREA DE TRABAJO", options=opts_conformidad, index=idx_area)
+
+                                    val_eq = str(row.get("CONDICIONES DEL EQUIPO", "CONFORME")).strip()
+                                    idx_eq = 0 if val_eq == "CONFORME" else 1
+                                    with col_c2:
+                                        nueva_cond_equipo = st.selectbox("CONDICIÓN EQUIPO", options=opts_conformidad, index=idx_eq)
+
+                                    val_ins = str(row.get("CONDICIONES DE LOS INSUMOS", "CONFORME")).strip()
+                                    idx_ins = 0 if val_ins == "CONFORME" else 1
+                                    with col_c3:
+                                        nueva_cond_insumos = st.selectbox("CONDICIÓN INSUMOS", options=opts_conformidad, index=idx_ins)
+
+                                    val_car = str(row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME")).strip()
+                                    idx_car = 0 if val_car == "CONFORME" else 1
+                                    with col_c4:
+                                        nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=opts_conformidad, index=idx_car)
+
+                                    st.markdown("##### 3. Horarios y Observaciones")
+                                    col_h1, col_h2, col_h3 = st.columns(3)
+                                    with col_h1:
+                                        nuevo_inicio = st.text_input("HORA INICIO", value=str(row.get("HORA INICIO", "")))
+                                        nuevo_termino = st.text_input("HORA TÉRMINO", value=str(row.get("HORA TÉRMINO", "")))
+                                    with col_h2:
+                                        nuevo_tiempo = st.text_input("TIEMPO CALCULADO", value=str(row.get("TIEMPO", "")))
+                                    with col_h3:
+                                        nueva_obs = st.text_area("OBSERVACIÓN", value=str(row.get("OBSERVACIÓN", "")))
+
+                                    btn_actualizar = st.form_submit_button("💾 Guardar Cambios de este Registro", use_container_width=True)
 
                                     if btn_actualizar:
                                         try:
@@ -406,17 +440,17 @@ with tab2:
                                                 row.get("ID_REGISTRO", str(uuid.uuid4())[:8]),
                                                 nuevo_prod,
                                                 nueva_linea,
-                                                row.get("CONDICIONES DEL AREA DE TRABAJO", "CONFORME"),
-                                                row.get("F.P", fecha_seleccionada),
+                                                nueva_cond_area,
+                                                nueva_fp,
                                                 nuevo_lote,
                                                 nuevo_batch,
                                                 nuevo_equipo,
                                                 nuevo_inicio,
-                                                row.get("CONDICIONES DEL EQUIPO", "CONFORME"),
-                                                row.get("CONDICIONES DE LOS INSUMOS", "CONFORME"),
-                                                row.get("CARACTERISTICAS DEL PRODUCTO", "CONFORME"),
+                                                nueva_cond_equipo,
+                                                nueva_cond_insumos,
+                                                nueva_caract_prod,
                                                 nuevo_termino,
-                                                row.get("TIEMPO", "15 min"),
+                                                nuevo_tiempo,
                                                 nuevo_resp,
                                                 nueva_obs,
                                             ]
