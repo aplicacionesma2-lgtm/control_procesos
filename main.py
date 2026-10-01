@@ -16,17 +16,10 @@ st.set_page_config(
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
-# OPCIONES ESTÁNDAR PARA CONDICIONES DE CALIDAD Y ENTORNO
-OPCIONES_CONFORMIDAD = [
+# OPCIONES ESTÁNDAR PARA CHECKLIST Y VISTO BUENO
+OPCIONES_CHECKLIST = [
     "CONFORME, LIMPIO Y DESINFECTADO",
     "NO CONFORME",
-]
-
-# OPCIONES DE VISTO BUENO / APROBACIÓN
-OPCIONES_VB = [
-    "PENDIENTE",
-    "APROBADO",
-    "RECHAZADO",
 ]
 
 # --- CABECERAS ESTÁNDAR UNIFICADAS ---
@@ -47,8 +40,8 @@ HEADERS = [
     "TIEMPO",
     "RESPONSABLE",
     "OBSERVACIÓN",
-    "VB PRODUCCIÓN",
-    "VB CALIDAD",
+    "VB_PRODUCCION",
+    "VB_CALIDAD",
 ]
 
 # --- CONEXIÓN SEGURA Y ROBUSTA A GOOGLE SHEETS ---
@@ -286,16 +279,23 @@ with tab1:
                 key="input_responsable",
             )
 
-        st.subheader("3. Condiciones del Entorno e Insumos")
+        st.subheader("3. Condiciones del Entorno e Insumos (Checklist y Visto Bueno)")
+        
         col8, col9, col10, col11 = st.columns(4)
         with col8:
-            cond_area = st.selectbox("CONDICIONES AREA TRABAJO", OPCIONES_CONFORMIDAD)
+            cond_area = st.selectbox("CONDICIONES AREA TRABAJO", OPCIONES_CHECKLIST, key="chk_area_new")
         with col9:
-            cond_equipo = st.selectbox("CONDICIONES EQUIPO", OPCIONES_CONFORMIDAD)
+            cond_equipo = st.selectbox("CONDICIONES EQUIPO", OPCIONES_CHECKLIST, key="chk_equipo_new")
         with col10:
-            cond_insumos = st.selectbox("CONDICIONES INSUMOS", OPCIONES_CONFORMIDAD)
+            cond_insumos = st.selectbox("CONDICIONES INSUMOS", OPCIONES_CHECKLIST, key="chk_insumos_new")
         with col11:
-            caract_producto = st.selectbox("CARACTERISTICAS PRODUCTO", OPCIONES_CONFORMIDAD)
+            caract_producto = st.selectbox("CARACTERISTICAS PRODUCTO", OPCIONES_CHECKLIST, key="chk_caract_new")
+
+        col_vb_prod, col_vb_cal = st.columns(2)
+        with col_vb_prod:
+            vb_prod = st.checkbox("☑️ Visto Bueno / Aprobación por PRODUCCIÓN", value=True, key="chk_vb_prod_new")
+        with col_vb_cal:
+            vb_cal = st.checkbox("☑️ Visto Bueno / Aprobación por CALIDAD", value=True, key="chk_vb_cal_new")
 
         st.subheader("4. Horarios y Tiempo de Proceso")
         col12, col13, col14 = st.columns(3)
@@ -314,14 +314,7 @@ with tab1:
         with col14:
             st.text_input("TIEMPO CALCULADO", value=tiempo_calculado, disabled=True)
 
-        st.subheader("5. Aprobación y Visto Bueno (V.B)")
-        col_v1, col_v2 = st.columns(2)
-        with col_v1:
-            vb_produccion = st.selectbox("V.B PRODUCCIÓN", OPCIONES_VB, index=0)
-        with col_v2:
-            vb_calidad = st.selectbox("V.B CALIDAD", OPCIONES_VB, index=0)
-
-        st.subheader("6. Observaciones Finales")
+        st.subheader("5. Observaciones Finales")
         col15, col16 = st.columns([1, 2])
         with col15:
             estado_obs = st.radio("OBSERVACIÓN", options=["CONFORME", "NO CONFORME", "OTRO (Texto Libre)"])
@@ -340,6 +333,9 @@ with tab1:
         else:
             registro_id = str(uuid.uuid4())[:8]
 
+            str_vb_prod = "APROBADO" if vb_prod else "PENDIENTE"
+            str_vb_cal = "APROBADO" if vb_cal else "PENDIENTE"
+
             fila_nueva = [
                 registro_id,
                 producto_final,
@@ -357,8 +353,8 @@ with tab1:
                 tiempo_calculado,
                 responsable,
                 observacion_final,
-                vb_produccion,
-                vb_calidad,
+                str_vb_prod,
+                str_vb_cal,
             ]
             try:
                 datos_existentes = ws.get_all_values()
@@ -402,12 +398,12 @@ with tab2:
                         for local_idx, row in df_filtrado.iterrows():
                             sheet_row_num = local_idx + 2
 
-                            v_prod_status = row.get('VB PRODUCCIÓN', 'PENDIENTE')
-                            v_cal_status = row.get('VB CALIDAD', 'PENDIENTE')
+                            st_vbp = str(row.get("VB_PRODUCCION", "PENDIENTE")).strip()
+                            st_vbq = str(row.get("VB_CALIDAD", "PENDIENTE")).strip()
 
                             with st.expander(
                                 f"📦 Producto: {row.get('PRODUCTO')} | Lote: {row.get('LOTE')} | "
-                                f"VB Prod: {v_prod_status} | VB Calidad: {v_cal_status}"
+                                f"VB Prod: {st_vbp} | VB Calidad: {st_vbq}"
                             ):
                                 with st.form(key=f"form_edit_{sheet_row_num}_{row.get('ID_REGISTRO', local_idx)}"):
                                     st.write(f"**Editando registro completo (Fila en Google Sheets: {sheet_row_num})**")
@@ -426,42 +422,36 @@ with tab2:
                                     with col_e4:
                                         nuevo_equipo = st.text_input("EQUIPO UTILIZADO", value=str(row.get("EQUIPO UTILIZADO", "")))
 
-                                    st.markdown("##### 2. Condiciones de Calidad y Entorno")
+                                    st.markdown("##### 2. Condiciones del Entorno e Insumos (Checklist y Visto Bueno)")
                                     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
                                     
                                     val_area = str(row.get("CONDICIONES DEL AREA DE TRABAJO", "")).strip()
                                     idx_area = 0 if "NO CONFORME" not in val_area else 1
                                     with col_c1:
-                                        nueva_cond_area = st.selectbox("ÁREA DE TRABAJO", options=OPCIONES_CONFORMIDAD, index=idx_area)
+                                        nueva_cond_area = st.selectbox("ÁREA DE TRABAJO", options=OPCIONES_CHECKLIST, index=idx_area)
 
                                     val_eq = str(row.get("CONDICIONES DEL EQUIPO", "")).strip()
                                     idx_eq = 0 if "NO CONFORME" not in val_eq else 1
                                     with col_c2:
-                                        nueva_cond_equipo = st.selectbox("CONDICIÓN EQUIPO", options=OPCIONES_CONFORMIDAD, index=idx_eq)
+                                        nueva_cond_equipo = st.selectbox("CONDICIÓN EQUIPO", options=OPCIONES_CHECKLIST, index=idx_eq)
 
                                     val_ins = str(row.get("CONDICIONES DE LOS INSUMOS", "")).strip()
                                     idx_ins = 0 if "NO CONFORME" not in val_ins else 1
                                     with col_c3:
-                                        nueva_cond_insumos = st.selectbox("CONDICIÓN INSUMOS", options=OPCIONES_CONFORMIDAD, index=idx_ins)
+                                        nueva_cond_insumos = st.selectbox("CONDICIÓN INSUMOS", options=OPCIONES_CHECKLIST, index=idx_ins)
 
                                     val_car = str(row.get("CARACTERISTICAS DEL PRODUCTO", "")).strip()
                                     idx_car = 0 if "NO CONFORME" not in val_car else 1
                                     with col_c4:
-                                        nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=OPCIONES_CONFORMIDAD, index=idx_car)
+                                        nueva_caract_prod = st.selectbox("CARACT. PRODUCTO", options=OPCIONES_CHECKLIST, index=idx_car)
 
-                                    st.markdown("##### 3. Aprobación y Visto Bueno (V.B)")
-                                    col_vb1, col_vb2 = st.columns(2)
-                                    val_vbp = str(row.get("VB PRODUCCIÓN", "PENDIENTE")).strip().upper()
-                                    idx_vbp = OPCIONES_VB.index(val_vbp) if val_vbp in OPCIONES_VB else 0
-                                    with col_vb1:
-                                        nuevo_vb_prod = st.selectbox("V.B PRODUCCIÓN", options=OPCIONES_VB, index=idx_vbp)
+                                    col_vbe1, col_vbe2 = st.columns(2)
+                                    with col_vbe1:
+                                        chk_vbp = st.checkbox("☑️ Visto Bueno / Aprobación por PRODUCCIÓN", value=(st_vbp == "APROBADO"))
+                                    with col_vbe2:
+                                        chk_vbq = st.checkbox("☑️ Visto Bueno / Aprobación por CALIDAD", value=(st_vbq == "APROBADO"))
 
-                                    val_vbq = str(row.get("VB CALIDAD", "PENDIENTE")).strip().upper()
-                                    idx_vbq = OPCIONES_VB.index(val_vbq) if val_vbq in OPCIONES_VB else 0
-                                    with col_vb2:
-                                        nuevo_vb_cal = st.selectbox("V.B CALIDAD", options=OPCIONES_VB, index=idx_vbq)
-
-                                    st.markdown("##### 4. Horarios y Observaciones")
+                                    st.markdown("##### 3. Horarios y Observaciones")
                                     col_h1, col_h2, col_h3 = st.columns(3)
                                     with col_h1:
                                         nuevo_inicio = st.text_input("HORA INICIO", value=str(row.get("HORA INICIO", "")))
@@ -475,6 +465,9 @@ with tab2:
 
                                     if btn_actualizar:
                                         try:
+                                            res_vbp = "APROBADO" if chk_vbp else "PENDIENTE"
+                                            res_vbq = "APROBADO" if chk_vbq else "PENDIENTE"
+
                                             fila_actualizada = [
                                                 row.get("ID_REGISTRO", str(uuid.uuid4())[:8]),
                                                 nuevo_prod,
@@ -492,8 +485,8 @@ with tab2:
                                                 nuevo_tiempo,
                                                 nuevo_resp,
                                                 nueva_obs,
-                                                nuevo_vb_prod,
-                                                nuevo_vb_cal,
+                                                res_vbp,
+                                                res_vbq,
                                             ]
                                             ws.update(
                                                 range_name=f"A{sheet_row_num}:R{sheet_row_num}",
