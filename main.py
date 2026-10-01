@@ -16,13 +16,13 @@ st.set_page_config(
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1eQ64LwSp8cVm0T9o29KJgYqfF5e6yCLeN2RqmuY_ftc/edit?gid=0#gid=0"
 FILE_PATH = "procesos.xlsx"
 
-# OPCIONES ESTÁNDAR PARA CHECKLIST Y VISTO BUENO
+# OPCIONES ESTÁNDAR PARA CHECKLIST
 OPCIONES_CHECKLIST = [
     "CONFORME, LIMPIO Y DESINFECTADO",
     "NO CONFORME",
 ]
 
-# --- CABECERAS ESTÁNDAR UNIFICADAS ---
+# --- CABECERAS ESTÁNDAR UNIFICADAS (18 COLUMNAS A:R) ---
 HEADERS = [
     "ID_REGISTRO",
     "PRODUCTO",
@@ -468,8 +468,13 @@ with tab2:
                                             res_vbp = "APROBADO" if chk_vbp else "PENDIENTE"
                                             res_vbq = "APROBADO" if chk_vbq else "PENDIENTE"
 
+                                            # Si el registro no tenía ID en la columna A, le genera uno nuevo
+                                            id_val = str(row.get("ID_REGISTRO", "")).strip()
+                                            if not id_val:
+                                                id_val = str(uuid.uuid4())[:8]
+
                                             fila_actualizada = [
-                                                row.get("ID_REGISTRO", str(uuid.uuid4())[:8]),
+                                                id_val,
                                                 nuevo_prod,
                                                 nueva_linea,
                                                 nueva_cond_area,
